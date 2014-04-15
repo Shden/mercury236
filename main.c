@@ -3,19 +3,22 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
-#include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdint.h>
 
-#define BAUDRATE B9600
-#define MODEMDEVICE "/dev/ttyUSB0"
-#define _POSIX_SOURCE 1 /* POSIX compliant source */
-#define FALSE 0
-#define TRUE 1
-#define UInt16		unsigned int
-#define byte		char
-
-volatile int STOP=FALSE;
+#pragma pack(1)
+#define BAUDRATE 	B9600		// 9600 baud
+#define MODEMDEVICE 	"/dev/ttyUSB0"	// Dongle device
+#define _POSIX_SOURCE 	1 /* POSIX compliant source */
+#define FALSE 		0
+#define TRUE 		1
+#define UInt16		uint16_t
+#define byte		unsigned char
+#define TIME_OUT	50		// Mercury inter-command delay (ms)
+#define BSZ		255
+#define PM_ADDRESS	0		// RS485 addess of the power meter
 
 // Compute the MODBUS RTU CRC
 // Source: http://www.ccontrolsys.com/w/How_to_Compute_the_Modbus_RTU_Message_CRC
@@ -36,8 +39,217 @@ UInt16 ModRTU_CRC(byte* buf, int len)
     }
   }
   // Note, this number has low and high bytes swapped, so use it accordingly (or swap bytes)
-  return crc;  
+  return crc;
 }
+
+void printPackage(byte *data, int size, int isin)
+{
+	printf("%s bytes: %d\n\r\t", (isin) ? "Received" : "Sent", size);
+	for (int i=0; i<size; i++)
+		printf("%02X ", (byte)data[i]);
+	printf("\n\r");
+}
+
+
+// ***** Commands
+// Test connecion
+typedef struct TestCmd
+{
+	byte	address;
+	byte	command;
+	UInt16	CRC;
+} TestCmd;
+
+// 1-byte responce (usually with status code)
+typedef struct Result_1b
+{
+	byte	address;
+	byte	result;
+	UInt16	CRC;
+} Result_1b;
+
+// Connection initialisaton command
+typedef struct InitCmd
+{
+	byte	address;
+	byte	command;
+	byte 	accessLevel;
+	byte	password[6];
+	UInt16	CRC;
+} InitCmd;
+
+// Connecion terminaion command
+typedef struct ByeCmd
+{
+	byte	address;
+	byte	command;
+	UInt16	CRC;
+} ByeCmd;
+
+// Power meter parameters read command
+typedef struct ReadParamCmd
+{
+	byte	address;
+	byte	command;	// 8h
+	byte	paramId;	// No of parameter to read
+	byte	BWRI;
+	UInt16 	CRC;
+} ReadParamCmd;
+
+// Result with 3 bytes per phase
+typedef struct Result_3x3b
+{
+	byte	address;
+	byte	p1[3];
+	byte	p2[3];
+	byte	p3[3];
+	UInt16	CRC;
+} Result_3x3b;
+
+// 3-phase vector (for voltage, frequency, power by phases)
+typedef struct P3V
+{
+	float	p1;
+	float	p2;
+	float	p3;
+} P3V;
+
+// **** Enums
+typedef enum Direction
+{
+	OUT = 0,
+	IN = 1
+} Direction;
+
+typedef enum ResultCode
+{
+	OK = 0,
+	ILLEGAL_CMD = 1,
+	INTERNAL_COUNTER_ERR = 2,
+	PERMISSION_DENIED = 3,
+	CLOCK_ALREADY_CORRECTED = 4,
+	CHANNEL_ISNT_OPEN = 5,
+	WRONG_RESULT_SIZE = 256,
+	WRONG_CRC = 257
+} ResultCode;
+
+typedef enum ExitCode
+{
+	EXIT_OK = 0,
+	EXIT_FAIL = 1
+} ExitCode;
+
+// -- Check the responce
+int checkResult_1b(byte* buf, int len)
+{
+	if (len != sizeof(Result_1b))
+		return WRONG_RESULT_SIZE;
+
+	Result_1b *res = (Result_1b*)buf;
+	UInt16 crc = ModRTU_CRC((byte*)res, sizeof(res) - sizeof(UInt16));
+	if (crc != res->CRC)
+		return WRONG_CRC;
+
+	return res->result & 0x0F;
+}
+
+// -- Check the communication channel
+int checkChannel(int ttyd)
+{
+	// Command initialisation
+	TestCmd testCmd = { .address = PM_ADDRESS, .command = 0x00 };
+	testCmd.CRC = ModRTU_CRC((byte*)&testCmd, sizeof(testCmd) - sizeof(UInt16));
+	printPackage((byte*)&testCmd, sizeof(testCmd), OUT);
+
+	// Send test channel command
+	write(ttyd, (byte*)&testCmd, sizeof(testCmd));
+	usleep(TIME_OUT);
+
+	// Get responce
+	char buf[BSZ];
+	int len = read(ttyd, buf, BSZ);
+	printPackage((byte*)buf, len, IN);
+
+	return checkResult_1b(buf, len);
+}
+
+// -- Connection initialisation
+int initConnection(int ttyd)
+{
+	InitCmd initCmd = {
+		.address = PM_ADDRESS,
+		.command = 0x01,
+		.accessLevel = 0x01,
+		.password = { 0x01, 0x01, 0x01, 0x01, 0x01, 0x01 },
+	};
+	initCmd.CRC = ModRTU_CRC((byte*)&initCmd, sizeof(initCmd) - sizeof(UInt16));
+	printPackage((byte*)&initCmd, sizeof(initCmd), OUT);
+
+	write(ttyd, (byte*)&initCmd, sizeof(initCmd));
+	usleep(TIME_OUT);
+
+	// Read initialisation result
+	char buf[BSZ];
+	int len = read(ttyd, buf, BSZ);
+	printPackage((byte*)buf, len, IN);
+
+	return checkResult_1b(buf, len);
+}
+
+// -- Close connection
+int closeConnection(int ttyd)
+{
+	ByeCmd byeCmd = { .address = PM_ADDRESS, .command = 0x02 };
+	byeCmd.CRC = ModRTU_CRC((byte*)&byeCmd, sizeof(byeCmd) - sizeof(UInt16));
+	printPackage((byte*)&byeCmd, sizeof(byeCmd), OUT);
+
+	write(ttyd, (byte*)&byeCmd, sizeof(byeCmd));
+	usleep(TIME_OUT);
+
+	// Read closing responce
+	char buf[BSZ];
+	int len = read(ttyd, buf, BSZ);
+	printPackage((byte*)buf, len, IN);
+
+	return checkResult_1b(buf, len);
+}
+
+float B3F(byte b[3], float factor)
+{
+	int val = (b[0] << 16) | (b[2] << 8) | b[1];
+	return val/factor;
+}
+
+// Get current voltage (U) by phases
+int getU(int ttyd, P3V* U)
+{
+	ReadParamCmd getUCmd =
+	{
+		.address = PM_ADDRESS,
+		.command = 0x08,
+		.paramId = 0x16,
+		.BWRI = 0x11
+	};
+	getUCmd.CRC = ModRTU_CRC((byte*)&getUCmd, sizeof(getUCmd) - sizeof(UInt16));
+	printPackage((byte*)&getUCmd, sizeof(getUCmd), OUT);
+
+	write(ttyd, (byte*)&getUCmd, sizeof(getUCmd));
+	usleep(TIME_OUT);
+
+	// Read closing responce
+	char buf[BSZ];
+	int len = read(ttyd, buf, BSZ);
+	printPackage((byte*)buf, len, IN);
+
+	Result_3x3b* res = (Result_3x3b*)buf;
+	U->p1 = B3F(res->p1, 100.0);
+	U->p2 = B3F(res->p2, 100.0);
+	U->p3 = B3F(res->p3, 100.0);
+
+// TBD check & extract
+	return OK;
+}
+
 
 int main()
 {
@@ -45,55 +257,60 @@ int main()
 	struct termios oldtio, newtio;
 	char buf[255];
 
-printf("3Before init sent");
-	fd = open(MODEMDEVICE, O_RDWR | O_NOCTTY);
-	if (fd < 0) { perror(MODEMDEVICE); exit(-1); }
+	// Open RS485 dongle
+	fd = open(MODEMDEVICE, O_RDWR | O_NOCTTY | O_NDELAY );
+	if (fd < 0)
+	{
+		perror(MODEMDEVICE);
+		exit(EXIT_FAIL);
+	}
+	fcntl(fd, F_SETFL, 0);
 
 	tcgetattr(fd, &oldtio); /* save current port settings */
-printf("2Before init sent\n\r");
 
 	bzero(&newtio, sizeof(newtio));
+
+	cfsetispeed(&newtio, BAUDRATE);
+	cfsetospeed(&newtio, BAUDRATE);
+
+	newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
 //	newtio.c_cflag = BAUDRATE | CRTSCTS | CS8 | CLOCAL | CREAD;
-	newtio.c_cflag = BAUDRATE | CS8 | CREAD;
+//	newtio.c_cflag = BAUDRATE | CS8 | CREAD;
 	newtio.c_iflag = IGNPAR;
 	newtio.c_oflag = 0;
 
-	/* set input mode (non-canonical, no echo,...) */
-	newtio.c_lflag = 0;
-
-	newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
-	newtio.c_cc[VMIN]     = 1;   /* blocking read until 1 chars received */
-
-	tcflush(fd, TCIFLUSH);
+	cfmakeraw(&newtio);
 	tcsetattr(fd, TCSANOW, &newtio);
 
-	/* connection initialisation & password */
-printf("1Before init sent\n\r");
-	char initCmd[] = { 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x77, 0x81 };
-
-	UInt16 crc =  ModRTU_CRC(initCmd, 9);
-	printf("CRC: %x\n\r", crc);
-	exit(0);
-
-//	char initCmd[] = { 0x00, 0x01, '1', '1', '1', '1', '1', '1', 0x01, 0x77, 0x81 };
-printf("Before init sent\n\r");
-	write(fd, initCmd, sizeof(initCmd));
-printf("Init sent\n\r");
-
-	/* read whatever is returned, just 1 line */
-	c = 0;
-	while (STOP==FALSE)
+	if (OK != checkChannel(fd))
 	{
-		res = read(fd, &buf[0], 255-c);   	/* returns after 1 chars have been input */
-	printf(":%x:%d\n", buf[0], res);
-		if (buf[0] == '\r' || buf[0] == '\n') STOP=TRUE;
-		c++;
+		printf("Power meter communication channel test failed.\n\r");
+		exit(EXIT_FAIL);
 	}
-	buf[c]='\0';               			/* so we can printf... */
-	printf(":%s:%d\n", buf, res);
+
+	if (OK != initConnection(fd))
+	{
+		printf("Power meter connection initialisation error.\n\r");
+		exit(EXIT_FAIL);
+	}
+
+	// Get voltage by phases
+	P3V U;
+	if (OK != getU(fd, &U))
+	{
+		printf("Cannot collect voltage data.\n\r");
+		exit(EXIT_FAIL);
+	}
+printf("U: %f * %f * %f\n\r", U.p1, U.p2, U.p3);
+
+	if (OK != closeConnection(fd))
+	{
+		printf("Power meter connection closing error.\n\r");
+		exit(EXIT_FAIL);
+	}
 
 	close(fd);
 	tcsetattr(fd, TCSANOW, &oldtio);
-	exit(0);
+	exit(EXIT_OK);
 }
 
