@@ -149,7 +149,8 @@ typedef enum
 	CLOCK_ALREADY_CORRECTED = 4,
 	CHANNEL_ISNT_OPEN = 5,
 	WRONG_RESULT_SIZE = 256,
-	WRONG_CRC = 257
+	WRONG_CRC = 257,
+	CHECK_CHANNEL_TIME_OUT = 258
 } ResultCode;
 
 typedef enum
@@ -211,7 +212,8 @@ void printPackage(byte *data, int size, int isin)
 }
 
 // -- Non-blocking file read with timeout
-int nb_read(int fd, byte* buf, int sz)
+// -- Returns 0 if timed out.
+int nb_read_impl(int fd, byte* buf, int sz)
 {
 	fd_set set;
 	struct timeval timeout;
@@ -228,9 +230,19 @@ int nb_read(int fd, byte* buf, int sz)
 	if (r < 0)
 		exitFailure("Select failed.");
 	else if (r == 0)
-		exitFailure("Communication channel timeout.");
+		return 0;
 	else
 		return read(fd, buf, BSZ);
+}
+
+// -- Non-blocking file read with timeout
+// -- Aborts if timed out.
+int nb_read(int fd, byte* buf, int sz)
+{
+	int r = nb_read_impl(fd, buf, sz);
+	if (r == 0)
+		exitFailure("Communication channel timeout.");
+	return r;
 }
 
 // -- Check 1 byte responce
@@ -317,7 +329,10 @@ int checkChannel(int ttyd)
 
 	// Get responce
 	byte buf[BSZ];
-	int len = nb_read(ttyd, buf, BSZ);
+	int len = nb_read_impl(ttyd, buf, BSZ);
+	if (len == 0)
+		return CHECK_CHANNEL_TIME_OUT;
+
 	printPackage((byte*)buf, len, IN);
 
 	return checkResult_1b(buf, len);
@@ -703,53 +718,71 @@ int main(int argc, const char** args)
 	cfmakeraw(&newtio);
 	tcsetattr(fd, TCSANOW, &newtio);
 
-	if (OK != checkChannel(fd))
-		exitFailure("Power meter communication channel test failed.");
-
-	if (OK != initConnection(fd))
-		exitFailure("Power meter connection initialisation error.");
-
-	// Get voltage by phases
-	P3V U;
-	if (OK != getU(fd, &U))
-		exitFailure("Cannot collect voltage data.");
-
-	// Get current by phases
-	P3V I;
-	if (OK != getI(fd, &I))
-		exitFailure("Cannot collect current data.");
-
-	// Get power cos(f) by phases
-	P3VS C;
-	if (OK != getCosF(fd, &C))
-		exitFailure("Cannot collect cos(f) data.");
-
-	// Get grid frequency
+	P3V U, I, A;
+	P3VS C, P, S, PR, PY, PT;
 	float f;
-	if (OK != getF(fd, &f))
-		exitFailure("Cannot collect grid frequency data.");
 
-	// Get phase angles
-	P3V A;
-	if (OK != getA(fd, &A))
-		exitFailure("Cannot collect phase angles data.");
+	switch(checkChannel(fd))
+	{
+		case OK:
+			if (OK != checkChannel(fd))
+				exitFailure("Power meter communication channel test failed.");
 
-	// Get active power consumption by phases
-	P3VS P;
-	if (OK != getP(fd, &P))
-		exitFailure("Cannot collect active power consumption data.");
+			if (OK != initConnection(fd))
+				exitFailure("Power meter connection initialisation error.");
 
-	// Get reactive power consumption by phases
-	P3VS S;
-	if (OK != getS(fd, &S))
-		exitFailure("Cannot collect reactive power consumption data.");
+			// Get voltage by phases
+			if (OK != getU(fd, &U))
+				exitFailure("Cannot collect voltage data.");
 
-	// Get power counter from reset, for yesterday and today
-	P3VS PR, PY, PT;
-	if (OK != getW(fd, &PR, PP_RESET, 0, 0) ||
-	    OK != getW(fd, &PY, PP_YESTERDAY, 0, 0) ||
-	    OK != getW(fd, &PT, PP_TODAY, 0, 0))
-		exitFailure("Cannot collect power counters data.");
+			// Get current by phases
+			if (OK != getI(fd, &I))
+				exitFailure("Cannot collect current data.");
+
+			// Get power cos(f) by phases
+			if (OK != getCosF(fd, &C))
+				exitFailure("Cannot collect cos(f) data.");
+
+			// Get grid frequency
+			if (OK != getF(fd, &f))
+				exitFailure("Cannot collect grid frequency data.");
+
+			// Get phase angles
+			if (OK != getA(fd, &A))
+				exitFailure("Cannot collect phase angles data.");
+
+			// Get active power consumption by phases
+			if (OK != getP(fd, &P))
+				exitFailure("Cannot collect active power consumption data.");
+
+			// Get reactive power consumption by phases
+			if (OK != getS(fd, &S))
+				exitFailure("Cannot collect reactive power consumption data.");
+
+			// Get power counter from reset, for yesterday and today
+			if (OK != getW(fd, &PR, PP_RESET, 0, 0) ||
+			    OK != getW(fd, &PY, PP_YESTERDAY, 0, 0) ||
+			    OK != getW(fd, &PT, PP_TODAY, 0, 0))
+				exitFailure("Cannot collect power counters data.");
+
+			if (OK != closeConnection(fd))
+				exitFailure("Power meter connection closing error.");
+
+			break;
+
+		case CHECK_CHANNEL_TIME_OUT:
+			U.p1 = U.p2 = U.p3 = 0.0;
+			I.p1 = I.p2 = I.p3 = 0.0;
+			P.p1 = P.p2 = P.p3 = P.sum = 0.0;
+			S.p1 = S.p2 = S.p3 = S.sum = 0.0;
+			break;
+
+		default:
+			exitFailure("Check channel failure.");
+	}
+
+	close(fd);
+	tcsetattr(fd, TCSANOW, &oldtio);
 
 	printf("U (V):   %8.2f %8.2f %8.2f\n\r", U.p1, U.p2, U.p3);
 	printf("I (A):   %8.2f %8.2f %8.2f\n\r", I.p1, I.p2, I.p3);
@@ -762,14 +795,6 @@ int main(int argc, const char** args)
 	printf("PY (KW): %8.2f %8.2f %8.2f (%8.2f)\n\r", PY.p1, PY.p2, PY.p3, PY.sum);
 	printf("PT (KW): %8.2f %8.2f %8.2f (%8.2f)\n\r", PT.p1, PT.p2, PT.p3, PT.sum);
 
-	if (OK != closeConnection(fd))
-	{
-		exitFailure("Power meter connection closing error.");
-		exit(EXIT_FAIL);
-	}
-
-	close(fd);
-	tcsetattr(fd, TCSANOW, &oldtio);
 	exit(EXIT_OK);
 }
 
