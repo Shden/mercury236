@@ -11,14 +11,150 @@
 #pragma pack(1)
 #define BAUDRATE 	B9600		// 9600 baud
 #define MODEMDEVICE 	"/dev/ttyUSB0"	// Dongle device
-#define _POSIX_SOURCE 	1 /* POSIX compliant source */
-#define FALSE 		0
-#define TRUE 		1
+#define _POSIX_SOURCE 	1		// POSIX compliant source 
 #define UInt16		uint16_t
 #define byte		unsigned char
 #define TIME_OUT	50		// Mercury inter-command delay (ms)
 #define BSZ		255
 #define PM_ADDRESS	0		// RS485 addess of the power meter
+
+// ***** Commands
+// Test connecion
+typedef struct 
+{
+	byte	address;
+	byte	command;
+	UInt16	CRC;
+} TestCmd;
+
+// Connection initialisaton command
+typedef struct 
+{
+	byte	address;
+	byte	command;
+	byte 	accessLevel;
+	byte	password[6];
+	UInt16	CRC;
+} InitCmd;
+
+// Connecion terminaion command
+typedef struct 
+{
+	byte	address;
+	byte	command;
+	UInt16	CRC;
+} ByeCmd;
+
+// Power meter parameters read command
+typedef struct 
+{
+	byte	address;
+	byte	command;	// 8h
+	byte	paramId;	// No of parameter to read
+	byte	BWRI;
+	UInt16 	CRC;
+} ReadParamCmd;
+
+// ***** Results
+// 1-byte responce (usually with status code)
+typedef struct 
+{
+	byte	address;
+	byte	result;
+	UInt16	CRC;
+} Result_1b;
+
+// 3-byte responce
+typedef struct 
+{
+	byte	address;
+	byte	res[3];
+	UInt16	CRC;
+} Result_3b;
+
+// Result with 3 bytes per phase
+typedef struct 
+{
+	byte	address;
+	byte	p1[3];
+	byte	p2[3];
+	byte	p3[3];
+	UInt16	CRC;
+} Result_3x3b;
+
+// Result with 3 bytes per phase plus 3 bytes for phases sum
+typedef struct 
+{
+	byte	address;
+	byte	sum[3];
+	byte	p1[3];
+	byte	p2[3];
+	byte	p3[3];
+	UInt16	CRC;
+} Result_4x3b;	
+
+// Result with 4 bytes per phase plus 4 bytes for sum
+typedef struct
+{
+	byte	address;
+	byte	sum[4];
+	byte	p1[4];
+	byte	p2[4];
+	byte	p3[4];
+	UInt16	CRC;	
+} Result_4x4b;
+
+// 3-phase vector (for voltage, frequency, power by phases)
+typedef struct 
+{
+	float	p1;
+	float	p2;
+	float	p3;
+} P3V;
+
+// 3-phase vector (for voltage, frequency, power by phases) with sum by all phases
+typedef struct 
+{
+	float	sum;
+	float	p1;
+	float	p2;
+	float	p3;
+} P3VS;
+
+// **** Enums
+typedef enum 
+{
+	OUT = 0,
+	IN = 1
+} Direction;
+
+typedef enum 
+{
+	OK = 0,
+	ILLEGAL_CMD = 1,
+	INTERNAL_COUNTER_ERR = 2,
+	PERMISSION_DENIED = 3,
+	CLOCK_ALREADY_CORRECTED = 4,
+	CHANNEL_ISNT_OPEN = 5,
+	WRONG_RESULT_SIZE = 256,
+	WRONG_CRC = 257
+} ResultCode;
+
+typedef enum 
+{
+	EXIT_OK = 0,
+	EXIT_FAIL = 1
+} ExitCode;
+
+typedef enum 			// How much energy consumed: 
+{
+	PP_RESET = 0,		// from reset
+	PP_YTD = 1,		// this year
+	PP_LAST_YEAR = 2,	// last year
+	PP_MONTH = 3,		// for the month specified
+	PP_TODAY = 4,		// today
+	PP_YESTERDAY = 5	// yesterday
+} PowerPeriod;
 
 // Compute the MODBUS RTU CRC
 // Source: http://www.ccontrolsys.com/w/How_to_Compute_the_Modbus_RTU_Message_CRC
@@ -42,6 +178,7 @@ UInt16 ModRTU_CRC(byte* buf, int len)
   return crc;
 }
 
+// -- Print out data buffer in hex
 void printPackage(byte *data, int size, int isin)
 {
 	printf("%s bytes: %d\n\r\t", (isin) ? "Received" : "Sent", size);
@@ -50,107 +187,74 @@ void printPackage(byte *data, int size, int isin)
 	printf("\n\r");
 }
 
-
-// ***** Commands
-// Test connecion
-typedef struct TestCmd
-{
-	byte	address;
-	byte	command;
-	UInt16	CRC;
-} TestCmd;
-
-// 1-byte responce (usually with status code)
-typedef struct Result_1b
-{
-	byte	address;
-	byte	result;
-	UInt16	CRC;
-} Result_1b;
-
-// Connection initialisaton command
-typedef struct InitCmd
-{
-	byte	address;
-	byte	command;
-	byte 	accessLevel;
-	byte	password[6];
-	UInt16	CRC;
-} InitCmd;
-
-// Connecion terminaion command
-typedef struct ByeCmd
-{
-	byte	address;
-	byte	command;
-	UInt16	CRC;
-} ByeCmd;
-
-// Power meter parameters read command
-typedef struct ReadParamCmd
-{
-	byte	address;
-	byte	command;	// 8h
-	byte	paramId;	// No of parameter to read
-	byte	BWRI;
-	UInt16 	CRC;
-} ReadParamCmd;
-
-// Result with 3 bytes per phase
-typedef struct Result_3x3b
-{
-	byte	address;
-	byte	p1[3];
-	byte	p2[3];
-	byte	p3[3];
-	UInt16	CRC;
-} Result_3x3b;
-
-// 3-phase vector (for voltage, frequency, power by phases)
-typedef struct P3V
-{
-	float	p1;
-	float	p2;
-	float	p3;
-} P3V;
-
-// **** Enums
-typedef enum Direction
-{
-	OUT = 0,
-	IN = 1
-} Direction;
-
-typedef enum ResultCode
-{
-	OK = 0,
-	ILLEGAL_CMD = 1,
-	INTERNAL_COUNTER_ERR = 2,
-	PERMISSION_DENIED = 3,
-	CLOCK_ALREADY_CORRECTED = 4,
-	CHANNEL_ISNT_OPEN = 5,
-	WRONG_RESULT_SIZE = 256,
-	WRONG_CRC = 257
-} ResultCode;
-
-typedef enum ExitCode
-{
-	EXIT_OK = 0,
-	EXIT_FAIL = 1
-} ExitCode;
-
-// -- Check the responce
+// -- Check 1 byte responce
 int checkResult_1b(byte* buf, int len)
 {
 	if (len != sizeof(Result_1b))
 		return WRONG_RESULT_SIZE;
 
 	Result_1b *res = (Result_1b*)buf;
-	UInt16 crc = ModRTU_CRC((byte*)res, sizeof(res) - sizeof(UInt16));
+	UInt16 crc = ModRTU_CRC(buf, sizeof(res) - sizeof(UInt16));
 	if (crc != res->CRC)
 		return WRONG_CRC;
 
 	return res->result & 0x0F;
+}
+
+// -- Check 3 byte responce
+int checkResult_3b(byte* buf, int len)
+{
+	if (len != sizeof(Result_3b))
+		return WRONG_RESULT_SIZE;
+
+	Result_3b *res = (Result_3b*)buf;
+	UInt16 crc = ModRTU_CRC(buf, sizeof(res) - sizeof(UInt16));
+	if (crc != res->CRC)
+		return WRONG_CRC;
+
+	return OK;
+}
+
+// -- Check 3 bytes x 3 phase responce
+int checkResult_3x3b(byte* buf, int len)
+{
+	if (len != sizeof(Result_3x3b))
+		return WRONG_RESULT_SIZE;
+
+	Result_3x3b *res = (Result_3x3b*)buf;
+	UInt16 crc = ModRTU_CRC(buf, sizeof(res) - sizeof(UInt16));
+	if (crc != res->CRC)
+		return WRONG_CRC;
+	
+	return OK;
+}	
+
+// -- Check 3 bytes x 3 phase and sum responce
+int checkResult_4x3b(byte* buf, int len)
+{
+	if (len != sizeof(Result_4x3b))
+		return WRONG_RESULT_SIZE;
+
+	Result_4x3b *res = (Result_4x3b*)buf;
+	UInt16 crc = ModRTU_CRC(buf, sizeof(res) - sizeof(UInt16));
+	if (crc != res->CRC)
+		return WRONG_CRC;
+	
+	return OK;
+}
+
+// -- Check 4 bytes x 3 phase and sum responce
+int checkResult_4x4b(byte* buf, int len)
+{
+	if (len != sizeof(Result_4x4b))
+		return WRONG_RESULT_SIZE;
+
+	Result_4x4b *res = (Result_4x4b*)buf;
+	UInt16 crc = ModRTU_CRC(buf, sizeof(res) - sizeof(UInt16));
+	if (crc != res->CRC)
+		return WRONG_CRC;
+	
+	return OK;	
 }
 
 // -- Check the communication channel
@@ -166,7 +270,7 @@ int checkChannel(int ttyd)
 	usleep(TIME_OUT);
 
 	// Get responce
-	char buf[BSZ];
+	byte buf[BSZ];
 	int len = read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
@@ -189,7 +293,7 @@ int initConnection(int ttyd)
 	usleep(TIME_OUT);
 
 	// Read initialisation result
-	char buf[BSZ];
+	byte buf[BSZ];
 	int len = read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
@@ -207,20 +311,28 @@ int closeConnection(int ttyd)
 	usleep(TIME_OUT);
 
 	// Read closing responce
-	char buf[BSZ];
+	byte buf[BSZ];
 	int len = read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
 	return checkResult_1b(buf, len);
 }
 
+// Decode float from 3 bytes
 float B3F(byte b[3], float factor)
 {
 	int val = (b[0] << 16) | (b[2] << 8) | b[1];
 	return val/factor;
 }
 
-// Get current voltage (U) by phases
+// Decode float from 4 bytes
+float B4F(byte b[4], float factor)
+{
+	int val = (b[1] << 24) | (b[0] << 16) | (b[3] << 8) | b[2];
+	return val/factor;	
+}
+
+// Get voltage (U) by phases
 int getU(int ttyd, P3V* U)
 {
 	ReadParamCmd getUCmd =
@@ -236,26 +348,279 @@ int getU(int ttyd, P3V* U)
 	write(ttyd, (byte*)&getUCmd, sizeof(getUCmd));
 	usleep(TIME_OUT);
 
-	// Read closing responce
-	char buf[BSZ];
+	// Read responce
+	byte buf[BSZ];
 	int len = read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
-	Result_3x3b* res = (Result_3x3b*)buf;
-	U->p1 = B3F(res->p1, 100.0);
-	U->p2 = B3F(res->p2, 100.0);
-	U->p3 = B3F(res->p3, 100.0);
+	// Check and decode result
+	int checkResult = checkResult_3x3b(buf, len);
+	if (OK == checkResult)
+	{
+		Result_3x3b* res = (Result_3x3b*)buf;
+		U->p1 = B3F(res->p1, 100.0);
+		U->p2 = B3F(res->p2, 100.0);
+		U->p3 = B3F(res->p3, 100.0);		
+	}
 
-// TBD check & extract
-	return OK;
+	return checkResult;
+}
+
+// Get current (I) by phases
+int getI(int ttyd, P3V* I)
+{
+	ReadParamCmd getICmd =
+	{
+		.address = PM_ADDRESS,
+		.command = 0x08,
+		.paramId = 0x16,
+		.BWRI = 0x21
+	};
+	getICmd.CRC = ModRTU_CRC((byte*)&getICmd, sizeof(getICmd) - sizeof(UInt16));
+	printPackage((byte*)&getICmd, sizeof(getICmd), OUT);
+
+	write(ttyd, (byte*)&getICmd, sizeof(getICmd));
+	usleep(TIME_OUT);
+
+	// Read responce
+	byte buf[BSZ];
+	int len = read(ttyd, buf, BSZ);
+	printPackage((byte*)buf, len, IN);
+
+	// Check and decode result
+	int checkResult = checkResult_3x3b(buf, len);
+	if (OK == checkResult)
+	{
+		Result_3x3b* res = (Result_3x3b*)buf;
+		I->p1 = B3F(res->p1, 1000.0);
+		I->p2 = B3F(res->p2, 1000.0);
+		I->p3 = B3F(res->p3, 1000.0);		
+	}
+
+	return checkResult;
+}
+
+// Get power consumption factor cos(f) by phases
+int getCosF(int ttyd, P3VS* C)
+{
+	ReadParamCmd getCosCmd =
+	{
+		.address = PM_ADDRESS,
+		.command = 0x08,
+		.paramId = 0x16,
+		.BWRI = 0x30
+	};
+	getCosCmd.CRC = ModRTU_CRC((byte*)&getCosCmd, sizeof(getCosCmd) - sizeof(UInt16));
+	printPackage((byte*)&getCosCmd, sizeof(getCosCmd), OUT);
+
+	write(ttyd, (byte*)&getCosCmd, sizeof(getCosCmd));
+	usleep(TIME_OUT);
+
+	// Read responce
+	byte buf[BSZ];
+	int len = read(ttyd, buf, BSZ);
+	printPackage((byte*)buf, len, IN);
+
+	// Check and decode result
+	int checkResult = checkResult_4x3b(buf, len);
+	if (OK == checkResult)
+	{
+		Result_4x3b* res = (Result_4x3b*)buf;
+		C->p1 = B3F(res->p1, 1000.0);
+		C->p2 = B3F(res->p2, 1000.0);
+		C->p3 = B3F(res->p3, 1000.0);
+		C->sum = B3F(res->sum, 1000.0);		
+	}
+
+	return checkResult;	
+}
+
+// Get grid frequency (Hz)
+int getF(int ttyd, float *f)
+{
+	ReadParamCmd getFCmd =
+	{
+		.address = PM_ADDRESS,
+		.command = 0x08,
+		.paramId = 0x16,
+		.BWRI = 0x40
+	};
+	getFCmd.CRC = ModRTU_CRC((byte*)&getFCmd, sizeof(getFCmd) - sizeof(UInt16));
+	printPackage((byte*)&getFCmd, sizeof(getFCmd), OUT);
+
+	write(ttyd, (byte*)&getFCmd, sizeof(getFCmd));
+	usleep(TIME_OUT);
+
+	// Read responce
+	byte buf[BSZ];
+	int len = read(ttyd, buf, BSZ);
+	printPackage((byte*)buf, len, IN);
+
+	// Check and decode result
+	int checkResult = checkResult_3b(buf, len);
+	if (OK == checkResult)
+	{
+		Result_3b* res = (Result_3b*)buf;
+		*f = B3F(res->res, 100.0);
+	}
+
+	return checkResult;		
+}
+
+// Get phases angle
+int getA(int ttyd, P3V* A)
+{
+	ReadParamCmd getACmd =
+	{
+		.address = PM_ADDRESS,
+		.command = 0x08,
+		.paramId = 0x16,
+		.BWRI = 0x51
+	};
+	getACmd.CRC = ModRTU_CRC((byte*)&getACmd, sizeof(getACmd) - sizeof(UInt16));
+	printPackage((byte*)&getACmd, sizeof(getACmd), OUT);
+
+	write(ttyd, (byte*)&getACmd, sizeof(getACmd));
+	usleep(TIME_OUT);
+
+	// Read responce
+	byte buf[BSZ];
+	int len = read(ttyd, buf, BSZ);
+	printPackage((byte*)buf, len, IN);
+
+	// Check and decode result
+	int checkResult = checkResult_3x3b(buf, len);
+	if (OK == checkResult)
+	{
+		Result_3x3b* res = (Result_3x3b*)buf;
+		A->p1 = B3F(res->p1, 100.0);
+		A->p2 = B3F(res->p2, 100.0);
+		A->p3 = B3F(res->p3, 100.0);		
+	}
+
+	return checkResult;
+}
+
+// Get active power (W) consumption by phases with total
+int getP(int ttyd, P3VS* P)
+{
+	ReadParamCmd getPCmd =
+	{
+		.address = PM_ADDRESS,
+		.command = 0x08,
+		.paramId = 0x16,
+		.BWRI = 0x00
+	};
+	getPCmd.CRC = ModRTU_CRC((byte*)&getPCmd, sizeof(getPCmd) - sizeof(UInt16));
+	printPackage((byte*)&getPCmd, sizeof(getPCmd), OUT);
+
+	write(ttyd, (byte*)&getPCmd, sizeof(getPCmd));
+	usleep(TIME_OUT);
+
+	// Read responce
+	byte buf[BSZ];
+	int len = read(ttyd, buf, BSZ);
+	printPackage((byte*)buf, len, IN);
+
+	// Check and decode result
+	int checkResult = checkResult_4x3b(buf, len);
+	if (OK == checkResult)
+	{
+		Result_4x3b* res = (Result_4x3b*)buf;
+		P->p1 = B3F(res->p1, 1000.0);
+		P->p2 = B3F(res->p2, 1000.0);
+		P->p3 = B3F(res->p3, 1000.0);
+		P->sum = B3F(res->sum, 1000.0);		
+	}
+
+	return checkResult;	
+}
+
+// Get reactive power (VA) consumption by phases with total
+int getS(int ttyd, P3VS* S)
+{
+	ReadParamCmd getSCmd =
+	{
+		.address = PM_ADDRESS,
+		.command = 0x08,
+		.paramId = 0x16,
+		.BWRI = 0x08
+	};
+	getSCmd.CRC = ModRTU_CRC((byte*)&getSCmd, sizeof(getSCmd) - sizeof(UInt16));
+	printPackage((byte*)&getSCmd, sizeof(getSCmd), OUT);
+
+	write(ttyd, (byte*)&getSCmd, sizeof(getSCmd));
+	usleep(TIME_OUT);
+
+	// Read responce
+	byte buf[BSZ];
+	int len = read(ttyd, buf, BSZ);
+	printPackage((byte*)buf, len, IN);
+
+	// Check and decode result
+	int checkResult = checkResult_4x3b(buf, len);
+	if (OK == checkResult)
+	{
+		Result_4x3b* res = (Result_4x3b*)buf;
+		S->p1 = B3F(res->p1, 1000.0);
+		S->p2 = B3F(res->p2, 1000.0);
+		S->p3 = B3F(res->p3, 1000.0);
+		S->sum = B3F(res->sum, 1000.0);		
+	}
+
+	return checkResult;	
+}
+
+/* Get power counters by phases for the period
+	periodId - one of PowerPeriod enum values
+	month - month number when periodId is PP_MONTH
+	tariffNo - 0 for all tariffs, 1 - tariff #1, 2 - tariff #2 etc.  */
+int getW(int ttyd, P3VS* W, int periodId, int month, int tariffNo)
+{
+	ReadParamCmd getWCmd =
+	{
+		.address = PM_ADDRESS,
+		.command = 0x05,
+		.paramId = (periodId << 4) | (month & 0xF),
+		.BWRI = tariffNo
+	};
+	getWCmd.CRC = ModRTU_CRC((byte*)&getWCmd, sizeof(getWCmd) - sizeof(UInt16));
+	printPackage((byte*)&getWCmd, sizeof(getWCmd), OUT);
+
+	write(ttyd, (byte*)&getWCmd, sizeof(getWCmd));
+	usleep(TIME_OUT);
+
+	// Read responce
+	byte buf[BSZ];
+	int len = read(ttyd, buf, BSZ);
+	printPackage((byte*)buf, len, IN);
+
+	// Check and decode result
+	int checkResult = checkResult_4x4b(buf, len);
+	if (OK == checkResult)
+	{
+		Result_4x4b* res = (Result_4x4b*)buf;
+		W->p1 = B4F(res->p1, 1000.0);
+		W->p2 = B4F(res->p2, 1000.0);
+		W->p3 = B4F(res->p3, 1000.0);
+		W->sum = B4F(res->sum, 1000.0);		
+	}
+
+	return checkResult;
 }
 
 
+// Abnormal termination
+void exitFailure(const char* msg)
+{
+	printf("%s", msg);
+	exit(EXIT_FAIL);
+}
+
 int main()
 {
-	int fd, res, c;
+	int fd;
 	struct termios oldtio, newtio;
-	char buf[255];
 
 	// Open RS485 dongle
 	fd = open(MODEMDEVICE, O_RDWR | O_NOCTTY | O_NDELAY );
@@ -283,29 +648,67 @@ int main()
 	tcsetattr(fd, TCSANOW, &newtio);
 
 	if (OK != checkChannel(fd))
-	{
-		printf("Power meter communication channel test failed.\n\r");
-		exit(EXIT_FAIL);
-	}
+		exitFailure("Power meter communication channel test failed.\n\r");
 
 	if (OK != initConnection(fd))
-	{
-		printf("Power meter connection initialisation error.\n\r");
-		exit(EXIT_FAIL);
-	}
+		exitFailure("Power meter connection initialisation error.\n\r");
 
 	// Get voltage by phases
 	P3V U;
 	if (OK != getU(fd, &U))
-	{
-		printf("Cannot collect voltage data.\n\r");
-		exit(EXIT_FAIL);
-	}
-printf("U: %f * %f * %f\n\r", U.p1, U.p2, U.p3);
+		exitFailure("Cannot collect voltage data.\n\r");
+
+	// Get current by phases
+	P3V I;
+	if (OK != getI(fd, &I))
+		exitFailure("Cannot collect current data.\n\r");
+	
+	// Get power cos(f) by phases
+	P3VS C;
+	if (OK != getCosF(fd, &C))
+		exitFailure("Cannot collect cos(f) data.\n\r");
+	
+	// Get grid frequency
+	float f;
+	if (OK != getF(fd, &f))
+		exitFailure("Cannot collect grid frequency data.\n\r");
+	
+	// Get phase angles
+	P3V A;
+	if (OK != getA(fd, &A))
+		exitFailure("Cannot collect phase angles data.\n\r");
+	
+	// Get active power consumption by phases
+	P3VS P;
+	if (OK != getP(fd, &P))
+		exitFailure("Cannot collect active power consumption data.\n\r");
+
+	// Get reactive power consumption by phases
+	P3VS S;
+	if (OK != getS(fd, &S))
+		exitFailure("Cannot collect reactive power consumption data.\n\r");
+	
+	// Get power counter from reset, for yesterday and today
+	P3VS PR, PY, PT;
+	if (OK != getW(fd, &PR, PP_RESET, 0, 0) ||
+	    OK != getW(fd, &PY, PP_YESTERDAY, 0, 0) ||
+	    OK != getW(fd, &PT, PP_TODAY, 0, 0))
+		exitFailure("Cannot collect power counters data.\n\r");
+
+	printf("U (V):\t%f * %f * %f\n\r", U.p1, U.p2, U.p3);
+	printf("I (A):\t%f * %f * %f\n\r", I.p1, I.p2, I.p3);
+	printf("Cos(f):\t%f * %f * %f (%f)\n\r", C.p1, C.p2, C.p3, C.sum);
+	printf("F (Hz):\t%f\n\r", f);
+	printf("A (deg):\t%f * %f * %f\n\r", A.p1, A.p2, A.p3);
+	printf("P (W):\t%f * %f * %f (%f)\n\r", P.p1, P.p2, P.p3, P.sum);
+	printf("S (VA):\t%f * %f * %f (%f)\n\r", S.p1, S.p2, S.p3, S.sum);
+	printf("PR (KW):\t%f * %f * %f (%f)\n\r", PR.p1, PR.p2, PR.p3, PR.sum);
+	printf("PY (KW):\t%f * %f * %f (%f)\n\r", PY.p1, PY.p2, PY.p3, PY.sum);
+	printf("PT (KW):\t%f * %f * %f (%f)\n\r", PT.p1, PT.p2, PT.p3, PT.sum);
 
 	if (OK != closeConnection(fd))
 	{
-		printf("Power meter connection closing error.\n\r");
+		exitFailure("Power meter connection closing error.\n\r");
 		exit(EXIT_FAIL);
 	}
 
