@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/select.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
@@ -15,6 +16,7 @@
 #define UInt16		uint16_t
 #define byte		unsigned char
 #define TIME_OUT	50		// Mercury inter-command delay (ms)
+#define CH_TIME_OUT	2		// Channel timeout (sec)
 #define BSZ		255
 #define PM_ADDRESS	0		// RS485 addess of the power meter
 #define OPT_DEBUG	"--debug"
@@ -182,6 +184,14 @@ UInt16 ModRTU_CRC(byte* buf, int len)
   return crc;
 }
 
+
+// -- Abnormal termination
+void exitFailure(const char* msg)
+{
+	printf("%s\n\r", msg);
+	exit(EXIT_FAIL);
+}
+
 // -- Print out data buffer in hex
 void printPackage(byte *data, int size, int isin)
 {
@@ -192,6 +202,29 @@ void printPackage(byte *data, int size, int isin)
 			printf("%02X ", (byte)data[i]);
 		printf("\n\r");
 	}
+}
+
+// -- Non-blocking file read with timeout
+int nb_read(int fd, byte* buf, int sz)
+{
+	fd_set set;
+	struct timeval timeout;
+
+	// Initialise the input set
+	FD_ZERO(&set);
+	FD_SET(fd, &set);
+
+	// Set timeout
+	timeout.tv_sec = CH_TIME_OUT;
+	timeout.tv_usec = 0;
+
+	int r = select(fd + 1, &set, NULL, NULL, &timeout);
+	if (r < 0)
+		exitFailure("Select failed.");
+	else if (r == 0)
+		exitFailure("Communication channel timeout.");
+	else
+		return read(fd, buf, BSZ);
 }
 
 // -- Check 1 byte responce
@@ -278,7 +311,7 @@ int checkChannel(int ttyd)
 
 	// Get responce
 	byte buf[BSZ];
-	int len = read(ttyd, buf, BSZ);
+	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
 	return checkResult_1b(buf, len);
@@ -301,7 +334,7 @@ int initConnection(int ttyd)
 
 	// Read initialisation result
 	byte buf[BSZ];
-	int len = read(ttyd, buf, BSZ);
+	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
 	return checkResult_1b(buf, len);
@@ -319,7 +352,7 @@ int closeConnection(int ttyd)
 
 	// Read closing responce
 	byte buf[BSZ];
-	int len = read(ttyd, buf, BSZ);
+	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
 	return checkResult_1b(buf, len);
@@ -357,7 +390,7 @@ int getU(int ttyd, P3V* U)
 
 	// Read responce
 	byte buf[BSZ];
-	int len = read(ttyd, buf, BSZ);
+	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -391,7 +424,7 @@ int getI(int ttyd, P3V* I)
 
 	// Read responce
 	byte buf[BSZ];
-	int len = read(ttyd, buf, BSZ);
+	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -425,7 +458,7 @@ int getCosF(int ttyd, P3VS* C)
 
 	// Read responce
 	byte buf[BSZ];
-	int len = read(ttyd, buf, BSZ);
+	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -460,7 +493,7 @@ int getF(int ttyd, float *f)
 
 	// Read responce
 	byte buf[BSZ];
-	int len = read(ttyd, buf, BSZ);
+	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -492,7 +525,7 @@ int getA(int ttyd, P3V* A)
 
 	// Read responce
 	byte buf[BSZ];
-	int len = read(ttyd, buf, BSZ);
+	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -526,7 +559,7 @@ int getP(int ttyd, P3VS* P)
 
 	// Read responce
 	byte buf[BSZ];
-	int len = read(ttyd, buf, BSZ);
+	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -561,7 +594,7 @@ int getS(int ttyd, P3VS* S)
 
 	// Read responce
 	byte buf[BSZ];
-	int len = read(ttyd, buf, BSZ);
+	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -599,7 +632,7 @@ int getW(int ttyd, P3VS* W, int periodId, int month, int tariffNo)
 
 	// Read responce
 	byte buf[BSZ];
-	int len = read(ttyd, buf, BSZ);
+	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -614,14 +647,6 @@ int getW(int ttyd, P3VS* W, int periodId, int month, int tariffNo)
 	}
 
 	return checkResult;
-}
-
-
-// Abnormal termination
-void exitFailure(const char* msg)
-{
-	printf("%s\n\r", msg);
-	exit(EXIT_FAIL);
 }
 
 void printUsage()
@@ -720,16 +745,16 @@ int main(int argc, const char** args)
 	    OK != getW(fd, &PT, PP_TODAY, 0, 0))
 		exitFailure("Cannot collect power counters data.");
 
-	printf("U (V):\t%f * %f * %f\n\r", U.p1, U.p2, U.p3);
-	printf("I (A):\t%f * %f * %f\n\r", I.p1, I.p2, I.p3);
-	printf("Cos(f):\t%f * %f * %f (%f)\n\r", C.p1, C.p2, C.p3, C.sum);
-	printf("F (Hz):\t%f\n\r", f);
-	printf("A (deg):\t%f * %f * %f\n\r", A.p1, A.p2, A.p3);
-	printf("P (W):\t%f * %f * %f (%f)\n\r", P.p1, P.p2, P.p3, P.sum);
-	printf("S (VA):\t%f * %f * %f (%f)\n\r", S.p1, S.p2, S.p3, S.sum);
-	printf("PR (KW):\t%f * %f * %f (%f)\n\r", PR.p1, PR.p2, PR.p3, PR.sum);
-	printf("PY (KW):\t%f * %f * %f (%f)\n\r", PY.p1, PY.p2, PY.p3, PY.sum);
-	printf("PT (KW):\t%f * %f * %f (%f)\n\r", PT.p1, PT.p2, PT.p3, PT.sum);
+	printf("U (V):   %8.2f %8.2f %8.2f\n\r", U.p1, U.p2, U.p3);
+	printf("I (A):   %8.2f %8.2f %8.2f\n\r", I.p1, I.p2, I.p3);
+	printf("Cos(f):  %8.2f %8.2f %8.2f (%8.2f)\n\r", C.p1, C.p2, C.p3, C.sum);
+	printf("F (Hz):  %8.2f\n\r", f);
+	printf("A (deg): %8.2f %8.2f %8.2f\n\r", A.p1, A.p2, A.p3);
+	printf("P (W):   %8.2f %8.2f %8.2f (%8.2f)\n\r", P.p1, P.p2, P.p3, P.sum);
+	printf("S (VA):  %8.2f %8.2f %8.2f (%8.2f)\n\r", S.p1, S.p2, S.p3, S.sum);
+	printf("PR (KW): %8.2f %8.2f %8.2f (%8.2f)\n\r", PR.p1, PR.p2, PR.p3, PR.sum);
+	printf("PY (KW): %8.2f %8.2f %8.2f (%8.2f)\n\r", PY.p1, PY.p2, PY.p3, PY.sum);
+	printf("PT (KW): %8.2f %8.2f %8.2f (%8.2f)\n\r", PT.p1, PT.p2, PT.p3, PT.sum);
 
 	if (OK != closeConnection(fd))
 	{
