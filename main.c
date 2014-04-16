@@ -19,7 +19,7 @@
 #define PM_ADDRESS	0		// RS485 addess of the power meter
 
 // ***** Commands
-// Test connecion
+// Test connection
 typedef struct 
 {
 	byte	address;
@@ -37,7 +37,7 @@ typedef struct
 	UInt16	CRC;
 } InitCmd;
 
-// Connecion terminaion command
+// Connection terminaion command
 typedef struct 
 {
 	byte	address;
