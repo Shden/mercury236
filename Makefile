@@ -1,6 +1,6 @@
 CFLAGS = -g -std=c99
 LIBS = -lm
-OBJS = main.o 
+OBJS = mercury236.o 
 
 
 mercury236: $(OBJS)
