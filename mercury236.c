@@ -797,6 +797,7 @@ int main(int argc, const char** args)
 	}
 
 	OutputBlock o;
+	bzero(&o, sizeof(o));
 
 	if (!dryRun)
 	{
@@ -877,7 +878,7 @@ int main(int argc, const char** args)
 			default:
 				exitFailure("Check channel failure.");
 		}
-	
+
 		close(fd);
 		tcsetattr(fd, TCSANOW, &oldtio);
 	}
