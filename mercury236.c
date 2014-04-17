@@ -27,6 +27,10 @@
 #define PM_ADDRESS	0		// RS485 addess of the power meter
 #define OPT_DEBUG	"--debug"
 #define OPT_HELP	"--help"
+#define OPT_TEST_RUN	"--testRun"
+#define OPT_HUMAN	"--human"
+#define OPT_CSV		"--csv"
+#define OPT_JSON	"--json"
 
 int debugPrint = 0;
 
@@ -133,6 +137,21 @@ typedef struct
 	float	p3;
 } P3VS;
 
+// Output results block
+typedef struct 
+{
+	P3V 	U;	// voltage
+	P3V	I;	// current
+	P3V	A;	// phase angles
+	P3VS	C;	// cos(f)
+	P3VS	P;	// current active power consumption
+	P3VS	S;	// current reactive power consumption
+	P3VS	PR;	// power counters from reset
+	P3VS	PY;	// power counters for yesterday
+	P3VS	PT;	// power counters for today
+	float	f;	// grid frequency
+} OutputBlock;
+
 // **** Enums
 typedef enum
 {
@@ -169,6 +188,13 @@ typedef enum 			// How much energy consumed:
 	PP_YESTERDAY = 5	// yesterday
 } PowerPeriod;
 
+typedef enum			// Output formatting
+{
+	OF_HUMAN = 0,		// human readable
+	OF_CSV = 1,		// comma-separated values
+	OF_JSON = 2		// json
+} OutputFormat;
+
 // Compute the MODBUS RTU CRC
 // Source: http://www.ccontrolsys.com/w/How_to_Compute_the_Modbus_RTU_Message_CRC
 UInt16 ModRTU_CRC(byte* buf, int len)
@@ -195,7 +221,7 @@ UInt16 ModRTU_CRC(byte* buf, int len)
 // -- Abnormal termination
 void exitFailure(const char* msg)
 {
-	printf("%s\n\r", msg);
+	perror(msg);
 	exit(EXIT_FAIL);
 }
 
@@ -229,10 +255,10 @@ int nb_read_impl(int fd, byte* buf, int sz)
 	int r = select(fd + 1, &set, NULL, NULL, &timeout);
 	if (r < 0)
 		exitFailure("Select failed.");
-	else if (r == 0)
+	if (r == 0)
 		return 0;
-	else
-		return read(fd, buf, BSZ);
+	
+	return read(fd, buf, BSZ);
 }
 
 // -- Non-blocking file read with timeout
@@ -670,130 +696,190 @@ int getW(int ttyd, P3VS* W, int periodId, int month, int tariffNo)
 	return checkResult;
 }
 
+// -- Command line usage help
 void printUsage()
 {
 	printf("Usage: mercury236 [OPTIONS] ...\n\r\n\r");
-	printf("\t--debug\t\tto print extra debug info\n\r", OPT_DEBUG);
-	printf("\t--help\t\tprints this screen\n\r", OPT_HELP);
+	printf("  %s\tto print extra debug info\n\r", OPT_DEBUG);
+	printf("  %s\tdry run to see output sample, no hardware required\n\r", OPT_TEST_RUN);
+	printf("\n\r");
+	printf("  Output formatting:\n\r");
+	printf("  %s\thuman readable (default)\n\r", OPT_HUMAN);
+	printf("  %s\t\tCSV\n\r", OPT_CSV);
+	printf("  %s\tjson\n\r", OPT_JSON);
+	printf("\n\r");
+	printf("  %s\tprints this screen\n\r", OPT_HELP);
+}
+
+// -- Output formatting and print
+void printOutput(int format, OutputBlock o)
+{
+	switch(format)
+	{
+		case OF_HUMAN:
+			printf("  Voltage (V):             %8.2f %8.2f %8.2f\n\r", o.U.p1, o.U.p2, o.U.p3);
+			printf("  Current (A):             %8.2f %8.2f %8.2f\n\r", o.I.p1, o.I.p2, o.I.p3);
+			printf("  Cos(f):                  %8.2f %8.2f %8.2f (%8.2f)\n\r", o.C.p1, o.C.p2, o.C.p3, o.C.sum);
+			printf("  Frequency (Hz):          %8.2f\n\r", o.f);
+			printf("  Phase angles (deg):      %8.2f %8.2f %8.2f\n\r", o.A.p1, o.A.p2, o.A.p3);
+			printf("  Active power (W):        %8.2f %8.2f %8.2f (%8.2f)\n\r", o.P.p1, o.P.p2, o.P.p3, o.P.sum);
+			printf("  Reactive power (VA):     %8.2f %8.2f %8.2f (%8.2f)\n\r", o.S.p1, o.S.p2, o.S.p3, o.S.sum);
+			printf("  Total consumed (KW):     %8.2f %8.2f %8.2f (%8.2f)\n\r", o.PR.p1, o.PR.p2, o.PR.p3, o.PR.sum);
+			printf("  Yesterday consumed (KW): %8.2f %8.2f %8.2f (%8.2f)\n\r", o.PY.p1, o.PY.p2, o.PY.p3, o.PY.sum);
+			printf("  Today consumed (KW):     %8.2f %8.2f %8.2f (%8.2f)\n\r", o.PT.p1, o.PT.p2, o.PT.p3, o.PT.sum);
+			break;
+			
+		case OF_CSV:
+			printf("%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n\r",
+				o.U.p1, o.U.p2, o.U.p3,
+				o.I.p1, o.I.p2, o.I.p3,
+				o.C.p1, o.C.p2, o.C.p3, o.C.sum,
+				o.f,
+				o.A.p1, o.A.p2, o.A.p3,
+				o.P.p1, o.P.p2, o.P.p3, o.P.sum,
+				o.S.p1, o.S.p2, o.S.p3, o.S.sum,
+				o.PR.p1, o.PR.p2, o.PR.p3, o.PR.sum,
+				o.PY.p1, o.PY.p2, o.PY.p3, o.PY.sum,
+				o.PT.p1, o.PT.p2, o.PT.p3, o.PT.sum
+			);
+			break;
+			
+		case OF_JSON:
+			printf("{\"U\":{\"p1\":%f,\"p2\":%f,\"p3\":%f},\"I\":{\"p1\":%f,\"p2\":%f,\"p3\":%f},\"CosF\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"F\":%f,\"A\":{\"p1\":%f,\"p2\":%f,\"p3\":%f},\"P\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"S\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"PR\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"PY\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"PT\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f}}\n\r",
+				o.U.p1, o.U.p2, o.U.p3,
+				o.I.p1, o.I.p2, o.I.p3,
+				o.C.p1, o.C.p2, o.C.p3, o.C.sum,
+				o.f,
+				o.A.p1, o.A.p2, o.A.p3,
+				o.P.p1, o.P.p2, o.P.p3, o.P.sum,
+				o.S.p1, o.S.p2, o.S.p3, o.S.sum,
+				o.PR.p1, o.PR.p2, o.PR.p3, o.PR.sum,
+				o.PY.p1, o.PY.p2, o.PY.p3, o.PY.sum,
+				o.PT.p1, o.PT.p2, o.PT.p3, o.PT.sum
+			);
+			break;
+			
+		default:
+			exitFailure("Invalid formatting.");
+			break;
+	}
 }
 
 int main(int argc, const char** args)
 {
-	int fd;
+	int fd, dryRun = 0, format = OF_HUMAN;
 	struct termios oldtio, newtio;
 
+	// see the command line options
 	for (int i=1; i<argc; i++)
 	{
 		if (!strcmp(OPT_DEBUG, args[i]))
 			debugPrint = 1;
+		else if (!strcmp(OPT_TEST_RUN, args[i]))
+			dryRun = 1;
+		else if (!strcmp(OPT_HUMAN, args[i]))
+			format = OF_HUMAN;
+		else if (!strcmp(OPT_CSV, args[i]))
+			format = OF_CSV;
+		else if (!strcmp(OPT_JSON, args[i]))
+			format = OF_JSON;
 		else
 		{
+			printf("Error: %s option is not recognised\n\r\n\r", args[i]);
 			printUsage();
-			exit(EXIT_OK);
+			exit(EXIT_FAIL);
 		}
 	}
 
-	// Open RS485 dongle
-	fd = open(MODEMDEVICE, O_RDWR | O_NOCTTY | O_NDELAY );
-	if (fd < 0)
+	OutputBlock o;
+	FD_ZERO(&o);
+
+	if (!dryRun)
 	{
-		perror(MODEMDEVICE);
-		exit(EXIT_FAIL);
-	}
-	fcntl(fd, F_SETFL, 0);
+		// Open RS485 dongle
+		fd = open(MODEMDEVICE, O_RDWR | O_NOCTTY | O_NDELAY );
+		if (fd < 0)
+			exitFailure(MODEMDEVICE);
 
-	tcgetattr(fd, &oldtio); /* save current port settings */
+		fcntl(fd, F_SETFL, 0);
 
-	bzero(&newtio, sizeof(newtio));
+		tcgetattr(fd, &oldtio); /* save current port settings */
 
-	cfsetispeed(&newtio, BAUDRATE);
-	cfsetospeed(&newtio, BAUDRATE);
+		bzero(&newtio, sizeof(newtio));
 
-	newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-//	newtio.c_cflag = BAUDRATE | CRTSCTS | CS8 | CLOCAL | CREAD;
-//	newtio.c_cflag = BAUDRATE | CS8 | CREAD;
-	newtio.c_iflag = IGNPAR;
-	newtio.c_oflag = 0;
+		cfsetispeed(&newtio, BAUDRATE);
+		cfsetospeed(&newtio, BAUDRATE);
 
-	cfmakeraw(&newtio);
-	tcsetattr(fd, TCSANOW, &newtio);
+		newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+	//	newtio.c_cflag = BAUDRATE | CRTSCTS | CS8 | CLOCAL | CREAD;
+	//	newtio.c_cflag = BAUDRATE | CS8 | CREAD;
+		newtio.c_iflag = IGNPAR;
+		newtio.c_oflag = 0;
 
-	P3V U, I, A;
-	P3VS C, P, S, PR, PY, PT;
-	float f;
+		cfmakeraw(&newtio);
+		tcsetattr(fd, TCSANOW, &newtio);
 
-	switch(checkChannel(fd))
-	{
-		case OK:
-			if (OK != checkChannel(fd))
-				exitFailure("Power meter communication channel test failed.");
+		switch(checkChannel(fd))
+		{
+			case OK:
+				if (OK != checkChannel(fd))
+					exitFailure("Power meter communication channel test failed.");
 
-			if (OK != initConnection(fd))
-				exitFailure("Power meter connection initialisation error.");
+				if (OK != initConnection(fd))
+					exitFailure("Power meter connection initialisation error.");
 
-			// Get voltage by phases
-			if (OK != getU(fd, &U))
-				exitFailure("Cannot collect voltage data.");
+				// Get voltage by phases
+				if (OK != getU(fd, &o.U))
+					exitFailure("Cannot collect voltage data.");
 
-			// Get current by phases
-			if (OK != getI(fd, &I))
-				exitFailure("Cannot collect current data.");
+				// Get current by phases
+				if (OK != getI(fd, &o.I))
+					exitFailure("Cannot collect current data.");
 
-			// Get power cos(f) by phases
-			if (OK != getCosF(fd, &C))
-				exitFailure("Cannot collect cos(f) data.");
+				// Get power cos(f) by phases
+				if (OK != getCosF(fd, &o.C))
+					exitFailure("Cannot collect cos(f) data.");
 
-			// Get grid frequency
-			if (OK != getF(fd, &f))
-				exitFailure("Cannot collect grid frequency data.");
+				// Get grid frequency
+				if (OK != getF(fd, &o.f))
+					exitFailure("Cannot collect grid frequency data.");
 
-			// Get phase angles
-			if (OK != getA(fd, &A))
-				exitFailure("Cannot collect phase angles data.");
+				// Get phase angles
+				if (OK != getA(fd, &o.A))
+					exitFailure("Cannot collect phase angles data.");
 
-			// Get active power consumption by phases
-			if (OK != getP(fd, &P))
-				exitFailure("Cannot collect active power consumption data.");
+				// Get active power consumption by phases
+				if (OK != getP(fd, &o.P))
+					exitFailure("Cannot collect active power consumption data.");
 
-			// Get reactive power consumption by phases
-			if (OK != getS(fd, &S))
-				exitFailure("Cannot collect reactive power consumption data.");
+				// Get reactive power consumption by phases
+				if (OK != getS(fd, &o.S))
+					exitFailure("Cannot collect reactive power consumption data.");
 
-			// Get power counter from reset, for yesterday and today
-			if (OK != getW(fd, &PR, PP_RESET, 0, 0) ||
-			    OK != getW(fd, &PY, PP_YESTERDAY, 0, 0) ||
-			    OK != getW(fd, &PT, PP_TODAY, 0, 0))
-				exitFailure("Cannot collect power counters data.");
+				// Get power counter from reset, for yesterday and today
+				if (OK != getW(fd, &o.PR, PP_RESET, 0, 0) ||
+				    OK != getW(fd, &o.PY, PP_YESTERDAY, 0, 0) ||
+				    OK != getW(fd, &o.PT, PP_TODAY, 0, 0))
+					exitFailure("Cannot collect power counters data.");
 
-			if (OK != closeConnection(fd))
-				exitFailure("Power meter connection closing error.");
+				if (OK != closeConnection(fd))
+					exitFailure("Power meter connection closing error.");
 
-			break;
+				break;
 
-		case CHECK_CHANNEL_TIME_OUT:
-			U.p1 = U.p2 = U.p3 = 0.0;
-			I.p1 = I.p2 = I.p3 = 0.0;
-			P.p1 = P.p2 = P.p3 = P.sum = 0.0;
-			S.p1 = S.p2 = S.p3 = S.sum = 0.0;
-			break;
+			case CHECK_CHANNEL_TIME_OUT:
+				break;
 
-		default:
-			exitFailure("Check channel failure.");
+			default:
+				exitFailure("Check channel failure.");
+		}
+	
+		close(fd);
+		tcsetattr(fd, TCSANOW, &oldtio);
 	}
 
-	close(fd);
-	tcsetattr(fd, TCSANOW, &oldtio);
-
-	printf("U (V):   %8.2f %8.2f %8.2f\n\r", U.p1, U.p2, U.p3);
-	printf("I (A):   %8.2f %8.2f %8.2f\n\r", I.p1, I.p2, I.p3);
-	printf("Cos(f):  %8.2f %8.2f %8.2f (%8.2f)\n\r", C.p1, C.p2, C.p3, C.sum);
-	printf("F (Hz):  %8.2f\n\r", f);
-	printf("A (deg): %8.2f %8.2f %8.2f\n\r", A.p1, A.p2, A.p3);
-	printf("P (W):   %8.2f %8.2f %8.2f (%8.2f)\n\r", P.p1, P.p2, P.p3, P.sum);
-	printf("S (VA):  %8.2f %8.2f %8.2f (%8.2f)\n\r", S.p1, S.p2, S.p3, S.sum);
-	printf("PR (KW): %8.2f %8.2f %8.2f (%8.2f)\n\r", PR.p1, PR.p2, PR.p3, PR.sum);
-	printf("PY (KW): %8.2f %8.2f %8.2f (%8.2f)\n\r", PY.p1, PY.p2, PY.p3, PY.sum);
-	printf("PT (KW): %8.2f %8.2f %8.2f (%8.2f)\n\r", PT.p1, PT.p2, PT.p3, PT.sum);
+	// print the results
+	printOutput(format, o);
 
 	exit(EXIT_OK);
 }
