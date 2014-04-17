@@ -783,6 +783,11 @@ int main(int argc, const char** args)
 			format = OF_CSV;
 		else if (!strcmp(OPT_JSON, args[i]))
 			format = OF_JSON;
+		else if (!strcmp(OPT_HELP, args[i]))
+		{
+			printUsage();
+			exit(EXIT_OK);
+		}
 		else
 		{
 			printf("Error: %s option is not recognised\n\r\n\r", args[i]);
