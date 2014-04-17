@@ -797,7 +797,6 @@ int main(int argc, const char** args)
 	}
 
 	OutputBlock o;
-	FD_ZERO(&o);
 
 	if (!dryRun)
 	{
