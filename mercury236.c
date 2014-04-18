@@ -827,9 +827,6 @@ int main(int argc, const char** args)
 		switch(checkChannel(fd))
 		{
 			case OK:
-				if (OK != checkChannel(fd))
-					exitFailure("Power meter communication channel test failed.");
-
 				if (OK != initConnection(fd))
 					exitFailure("Power meter connection initialisation error.");
 
@@ -876,7 +873,7 @@ int main(int argc, const char** args)
 				break;
 
 			default:
-				exitFailure("Check channel failure.");
+				exitFailure("Power meter communication channel test failed.");
 		}
 
 		close(fd);
