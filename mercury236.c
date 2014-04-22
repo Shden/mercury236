@@ -733,13 +733,13 @@ void printOutput(int format, OutputBlock o)
 			printf("  Phase angles (deg):      %8.2f %8.2f %8.2f\n\r", o.A.p1, o.A.p2, o.A.p3);
 			printf("  Active power (W):        %8.2f %8.2f %8.2f (%8.2f)\n\r", o.P.p1, o.P.p2, o.P.p3, o.P.sum);
 			printf("  Reactive power (VA):     %8.2f %8.2f %8.2f (%8.2f)\n\r", o.S.p1, o.S.p2, o.S.p3, o.S.sum);
-			printf("  Total consumed (KW):     %8.2f %8.2f %8.2f (%8.2f)\n\r", o.PR.ap, o.PR.am, o.PR.rp, o.PR.rm);
-			printf("  Yesterday consumed (KW): %8.2f %8.2f %8.2f (%8.2f)\n\r", o.PY.ap, o.PY.am, o.PY.rp, o.PY.rm);
-			printf("  Today consumed (KW):     %8.2f %8.2f %8.2f (%8.2f)\n\r", o.PT.ap, o.PT.am, o.PT.rp, o.PT.rm);
+			printf("  Total consumed (KW):     %8.2f %8.2f\n\r", o.PR.ap, o.PR.rp);
+			printf("  Yesterday consumed (KW): %8.2f %8.2f\n\r", o.PY.ap, o.PY.rp);
+			printf("  Today consumed (KW):     %8.2f %8.2f\n\r", o.PT.ap, o.PT.rp);
 			break;
 			
 		case OF_CSV:
-			printf("%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n\r",
+			printf("%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n\r",
 				o.U.p1, o.U.p2, o.U.p3,
 				o.I.p1, o.I.p2, o.I.p3,
 				o.C.p1, o.C.p2, o.C.p3, o.C.sum,
@@ -747,14 +747,14 @@ void printOutput(int format, OutputBlock o)
 				o.A.p1, o.A.p2, o.A.p3,
 				o.P.p1, o.P.p2, o.P.p3, o.P.sum,
 				o.S.p1, o.S.p2, o.S.p3, o.S.sum,
-				o.PR.ap, o.PR.am, o.PR.rp, o.PR.rm,
-				o.PY.ap, o.PY.am, o.PY.rp, o.PY.rm,
-				o.PT.ap, o.PT.am, o.PT.rp, o.PT.rm
+				o.PR.ap, o.PR.rp,
+				o.PY.ap, o.PY.rp,
+				o.PT.ap, o.PT.rp
 			);
 			break;
 			
 		case OF_JSON:
-			printf("{\"U\":{\"p1\":%f,\"p2\":%f,\"p3\":%f},\"I\":{\"p1\":%f,\"p2\":%f,\"p3\":%f},\"CosF\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"F\":%f,\"A\":{\"p1\":%f,\"p2\":%f,\"p3\":%f},\"P\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"S\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"PR\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"PY\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"PT\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f}}\n\r",
+			printf("{\"U\":{\"p1\":%f,\"p2\":%f,\"p3\":%f},\"I\":{\"p1\":%f,\"p2\":%f,\"p3\":%f},\"CosF\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"F\":%f,\"A\":{\"p1\":%f,\"p2\":%f,\"p3\":%f},\"P\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"S\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"PR\":{\"ap\":%f,\"rp\":%f},\"PY\":{\"ap\":%f,\"rp\":%f},\"PT\":{\"ap\":%f,\"rp\":%f}}\n\r",
 				o.U.p1, o.U.p2, o.U.p3,
 				o.I.p1, o.I.p2, o.I.p3,
 				o.C.p1, o.C.p2, o.C.p3, o.C.sum,
@@ -762,9 +762,9 @@ void printOutput(int format, OutputBlock o)
 				o.A.p1, o.A.p2, o.A.p3,
 				o.P.p1, o.P.p2, o.P.p3, o.P.sum,
 				o.S.p1, o.S.p2, o.S.p3, o.S.sum,
-				o.PR.ap, o.PR.am, o.PR.rp, o.PR.rm,
-				o.PY.ap, o.PY.am, o.PY.rp, o.PY.rm,
-				o.PT.ap, o.PT.am, o.PT.rp, o.PT.rm
+				o.PR.ap, o.PR.rp,
+				o.PY.ap, o.PY.rp,
+				o.PT.ap, o.PT.rp
 			);
 			break;
 			
