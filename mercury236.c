@@ -113,10 +113,10 @@ typedef struct
 typedef struct
 {
 	byte	address;
-	byte	sum[4];
-	byte	p1[4];
-	byte	p2[4];
-	byte	p3[4];
+	byte	ap[4];		// active +
+	byte	am[4];		// active -
+	byte	rp[4];		// reactive +
+	byte	rm[4];		// reactive -
 	UInt16	CRC;
 } Result_4x4b;
 
@@ -137,6 +137,15 @@ typedef struct
 	float	p3;
 } P3VS;
 
+// Power vector
+typedef struct
+{
+	float 	ap;		// active +
+	float	am;		// active -
+	float 	rp;		// reactive +
+	float 	rm;		// reactive -
+} PWV;
+
 // Output results block
 typedef struct 
 {
@@ -146,9 +155,9 @@ typedef struct
 	P3VS	C;	// cos(f)
 	P3VS	P;	// current active power consumption
 	P3VS	S;	// current reactive power consumption
-	P3VS	PR;	// power counters from reset
-	P3VS	PY;	// power counters for yesterday
-	P3VS	PT;	// power counters for today
+	PWV	PR;	// power counters from reset
+	PWV	PY;	// power counters for yesterday
+	PWV	PT;	// power counters for today
 	float	f;	// grid frequency
 } OutputBlock;
 
@@ -661,8 +670,8 @@ int getS(int ttyd, P3VS* S)
 /* Get power counters by phases for the period
 	periodId - one of PowerPeriod enum values
 	month - month number when periodId is PP_MONTH
-	tariffNo - 0 for all tariffs, 1 - tariff #1, 2 - tariff #2 etc.  */
-int getW(int ttyd, P3VS* W, int periodId, int month, int tariffNo)
+	tariffNo - 0 for all tariffs, 1 - tariff #1, 2 - tariff #2 etc. */
+int getW(int ttyd, PWV* W, int periodId, int month, int tariffNo)
 {
 	ReadParamCmd getWCmd =
 	{
@@ -687,10 +696,10 @@ int getW(int ttyd, P3VS* W, int periodId, int month, int tariffNo)
 	if (OK == checkResult)
 	{
 		Result_4x4b* res = (Result_4x4b*)buf;
-		W->p1 = B4F(res->p1, 1000.0);
-		W->p2 = B4F(res->p2, 1000.0);
-		W->p3 = B4F(res->p3, 1000.0);
-		W->sum = B4F(res->sum, 1000.0);
+		W->ap = B4F(res->ap, 1000.0);
+		W->am = B4F(res->am, 1000.0);
+		W->rp = B4F(res->rp, 1000.0);
+		W->rm = B4F(res->rm, 1000.0);
 	}
 
 	return checkResult;
@@ -724,9 +733,9 @@ void printOutput(int format, OutputBlock o)
 			printf("  Phase angles (deg):      %8.2f %8.2f %8.2f\n\r", o.A.p1, o.A.p2, o.A.p3);
 			printf("  Active power (W):        %8.2f %8.2f %8.2f (%8.2f)\n\r", o.P.p1, o.P.p2, o.P.p3, o.P.sum);
 			printf("  Reactive power (VA):     %8.2f %8.2f %8.2f (%8.2f)\n\r", o.S.p1, o.S.p2, o.S.p3, o.S.sum);
-			printf("  Total consumed (KW):     %8.2f %8.2f %8.2f (%8.2f)\n\r", o.PR.p1, o.PR.p2, o.PR.p3, o.PR.sum);
-			printf("  Yesterday consumed (KW): %8.2f %8.2f %8.2f (%8.2f)\n\r", o.PY.p1, o.PY.p2, o.PY.p3, o.PY.sum);
-			printf("  Today consumed (KW):     %8.2f %8.2f %8.2f (%8.2f)\n\r", o.PT.p1, o.PT.p2, o.PT.p3, o.PT.sum);
+			printf("  Total consumed (KW):     %8.2f %8.2f %8.2f (%8.2f)\n\r", o.PR.ap, o.PR.am, o.PR.rp, o.PR.rm);
+			printf("  Yesterday consumed (KW): %8.2f %8.2f %8.2f (%8.2f)\n\r", o.PY.ap, o.PY.am, o.PY.rp, o.PY.rm);
+			printf("  Today consumed (KW):     %8.2f %8.2f %8.2f (%8.2f)\n\r", o.PT.ap, o.PT.am, o.PT.rp, o.PT.rm);
 			break;
 			
 		case OF_CSV:
@@ -738,9 +747,9 @@ void printOutput(int format, OutputBlock o)
 				o.A.p1, o.A.p2, o.A.p3,
 				o.P.p1, o.P.p2, o.P.p3, o.P.sum,
 				o.S.p1, o.S.p2, o.S.p3, o.S.sum,
-				o.PR.p1, o.PR.p2, o.PR.p3, o.PR.sum,
-				o.PY.p1, o.PY.p2, o.PY.p3, o.PY.sum,
-				o.PT.p1, o.PT.p2, o.PT.p3, o.PT.sum
+				o.PR.ap, o.PR.am, o.PR.rp, o.PR.rm,
+				o.PY.ap, o.PY.am, o.PY.rp, o.PY.rm,
+				o.PT.ap, o.PT.am, o.PT.rp, o.PT.rm
 			);
 			break;
 			
@@ -753,9 +762,9 @@ void printOutput(int format, OutputBlock o)
 				o.A.p1, o.A.p2, o.A.p3,
 				o.P.p1, o.P.p2, o.P.p3, o.P.sum,
 				o.S.p1, o.S.p2, o.S.p3, o.S.sum,
-				o.PR.p1, o.PR.p2, o.PR.p3, o.PR.sum,
-				o.PY.p1, o.PY.p2, o.PY.p3, o.PY.sum,
-				o.PT.p1, o.PT.p2, o.PT.p3, o.PT.sum
+				o.PR.ap, o.PR.am, o.PR.rp, o.PR.rm,
+				o.PY.ap, o.PY.am, o.PY.rp, o.PY.rm,
+				o.PT.ap, o.PT.am, o.PT.rp, o.PT.rm
 			);
 			break;
 			
