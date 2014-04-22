@@ -17,7 +17,6 @@
 
 #pragma pack(1)
 #define BAUDRATE 	B9600		// 9600 baud
-#define MODEMDEVICE 	"/dev/ttyUSB0"	// Dongle device
 #define _POSIX_SOURCE 	1		// POSIX compliant source
 #define UInt16		uint16_t
 #define byte		unsigned char
@@ -708,7 +707,8 @@ int getW(int ttyd, PWV* W, int periodId, int month, int tariffNo)
 // -- Command line usage help
 void printUsage()
 {
-	printf("Usage: mercury236 [OPTIONS] ...\n\r\n\r");
+	printf("Usage: mercury236 RS485 [OPTIONS] ...\n\r\n\r");
+	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required\n\r");
 	printf("  %s\tto print extra debug info\n\r", OPT_DEBUG);
 	printf("  %s\tdry run to see output sample, no hardware required\n\r", OPT_TEST_RUN);
 	printf("\n\r");
@@ -778,9 +778,19 @@ int main(int argc, const char** args)
 {
 	int fd, dryRun = 0, format = OF_HUMAN;
 	struct termios oldtio, newtio;
+	char dev[BSZ];
 
+	// get RS485 address (1st required param)
+	if (argc < 2)
+	{
+		printf("Error: no RS485 device specified\n\r\n\r");
+		printUsage();
+		exit(EXIT_FAIL);
+	}
+	strncpy(dev, args[1], BSZ);
+		
 	// see the command line options
-	for (int i=1; i<argc; i++)
+	for (int i=2; i<argc; i++)
 	{
 		if (!strcmp(OPT_DEBUG, args[i]))
 			debugPrint = 1;
@@ -811,9 +821,9 @@ int main(int argc, const char** args)
 	if (!dryRun)
 	{
 		// Open RS485 dongle
-		fd = open(MODEMDEVICE, O_RDWR | O_NOCTTY | O_NDELAY );
+		fd = open(dev, O_RDWR | O_NOCTTY | O_NDELAY );
 		if (fd < 0)
-			exitFailure(MODEMDEVICE);
+			exitFailure(dev);
 
 		fcntl(fd, F_SETFL, 0);
 
