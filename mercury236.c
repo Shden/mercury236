@@ -408,14 +408,14 @@ int closeConnection(int ttyd)
 // Decode float from 3 bytes
 float B3F(byte b[3], float factor)
 {
-	int val = (b[0] << 16) | (b[2] << 8) | b[1];
+	int val = ((b[0] & 0x3F) << 16) | (b[2] << 8) | b[1];
 	return val/factor;
 }
 
 // Decode float from 4 bytes
 float B4F(byte b[4], float factor)
 {
-	int val = (b[1] << 24) | (b[0] << 16) | (b[3] << 8) | b[2];
+	int val = ((b[1] & 0x3F) << 24) | (b[0] << 16) | (b[3] << 8) | b[2];
 	return val/factor;
 }
 
