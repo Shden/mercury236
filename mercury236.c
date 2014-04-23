@@ -30,6 +30,7 @@
 #define OPT_HUMAN	"--human"
 #define OPT_CSV		"--csv"
 #define OPT_JSON	"--json"
+#define OPT_HEADER	"--header"
 
 int debugPrint = 0;
 
@@ -716,12 +717,13 @@ void printUsage()
 	printf("  %s\thuman readable (default)\n\r", OPT_HUMAN);
 	printf("  %s\t\tCSV\n\r", OPT_CSV);
 	printf("  %s\tjson\n\r", OPT_JSON);
+	printf("  %s\tto print data header (with %s only)\n\r", OPT_HEADER, OPT_CSV);
 	printf("\n\r");
 	printf("  %s\tprints this screen\n\r", OPT_HELP);
 }
 
 // -- Output formatting and print
-void printOutput(int format, OutputBlock o)
+void printOutput(int format, OutputBlock o, int header)
 {
 	switch(format)
 	{
@@ -739,7 +741,13 @@ void printOutput(int format, OutputBlock o)
 			break;
 			
 		case OF_CSV:
-			printf("%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n\r",
+			if (header)
+			{
+				// to be the same order as params below
+				printf("U1,U2,U3,I1,I2,I3,C1,C2,C3,Csum,F,A1,A2,A3,P1,P2,P2,Psum,S1,S2,S3,Ssum,PRa,PRr,PYa,PYr,PTa,PTr\n\r");
+			
+			}
+			printf("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n\r",
 				o.U.p1, o.U.p2, o.U.p3,
 				o.I.p1, o.I.p2, o.I.p3,
 				o.C.p1, o.C.p2, o.C.p3, o.C.sum,
@@ -754,7 +762,7 @@ void printOutput(int format, OutputBlock o)
 			break;
 			
 		case OF_JSON:
-			printf("{\"U\":{\"p1\":%f,\"p2\":%f,\"p3\":%f},\"I\":{\"p1\":%f,\"p2\":%f,\"p3\":%f},\"CosF\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"F\":%f,\"A\":{\"p1\":%f,\"p2\":%f,\"p3\":%f},\"P\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"S\":{\"p1\":%f,\"p2\":%f,\"p3\":%f,\"sum\":%f},\"PR\":{\"ap\":%f,\"rp\":%f},\"PY\":{\"ap\":%f,\"rp\":%f},\"PT\":{\"ap\":%f,\"rp\":%f}}\n\r",
+			printf("{\"U\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"I\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"CosF\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"F\":%.2f,\"A\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"P\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"S\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"PR\":{\"ap\":%.2f,\"rp\":%.2f},\"PY\":{\"ap\":%.2f,\"rp\":%.2f},\"PT\":{\"ap\":%.2f,\"rp\":%.2f}}\n\r",
 				o.U.p1, o.U.p2, o.U.p3,
 				o.I.p1, o.I.p2, o.I.p3,
 				o.C.p1, o.C.p2, o.C.p3, o.C.sum,
@@ -776,7 +784,7 @@ void printOutput(int format, OutputBlock o)
 
 int main(int argc, const char** args)
 {
-	int fd, dryRun = 0, format = OF_HUMAN;
+	int fd, dryRun = 0, format = OF_HUMAN, header = 0;
 	struct termios oldtio, newtio;
 	char dev[BSZ];
 
@@ -802,6 +810,8 @@ int main(int argc, const char** args)
 			format = OF_CSV;
 		else if (!strcmp(OPT_JSON, args[i]))
 			format = OF_JSON;
+		else if (!strcmp(OPT_HEADER, args[i]))
+			header = 1;
 		else if (!strcmp(OPT_HELP, args[i]))
 		{
 			printUsage();
@@ -900,7 +910,7 @@ int main(int argc, const char** args)
 	}
 
 	// print the results
-	printOutput(format, o);
+	printOutput(format, o, header);
 
 	exit(EXIT_OK);
 }
