@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <time.h>
 
 #pragma pack(1)
 #define BAUDRATE 	B9600		// 9600 baud
@@ -33,6 +34,9 @@
 #define OPT_HEADER	"--header"
 
 int debugPrint = 0;
+
+void getDateTimeStr(char *, int, time_t);
+
 
 // ***** Commands
 // Test connection
@@ -725,6 +729,10 @@ void printUsage()
 // -- Output formatting and print
 void printOutput(int format, OutputBlock o, int header)
 {
+	// getting current time for timestamp
+	char timeStamp[BSZ];
+	getDateTimeStr(timeStamp, BSZ, time(NULL));
+	
 	switch(format)
 	{
 		case OF_HUMAN:
@@ -744,17 +752,18 @@ void printOutput(int format, OutputBlock o, int header)
 			if (header)
 			{
 				// to be the same order as params below
-				printf("U1,U2,U3,I1,I2,I3,C1,C2,C3,Csum,F,A1,A2,A3,P1,P2,P2,Psum,S1,S2,S3,Ssum,PRa,PRr,PYa,PYr,PTa,PTr\n\r");
+				printf("DT,U1,U2,U3,I1,I2,I3,P1,P2,P2,Psum,S1,S2,S3,Ssum,C1,C2,C3,Csum,F,A1,A2,A3,PRa,PRr,PYa,PYr,PTa,PTr\n\r");
 			
 			}
-			printf("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n\r",
+			printf("%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n\r",
+				timeStamp,
 				o.U.p1, o.U.p2, o.U.p3,
 				o.I.p1, o.I.p2, o.I.p3,
+				o.P.p1, o.P.p2, o.P.p3, o.P.sum,
+				o.S.p1, o.S.p2, o.S.p3, o.S.sum,
 				o.C.p1, o.C.p2, o.C.p3, o.C.sum,
 				o.f,
 				o.A.p1, o.A.p2, o.A.p3,
-				o.P.p1, o.P.p2, o.P.p3, o.P.sum,
-				o.S.p1, o.S.p2, o.S.p3, o.S.sum,
 				o.PR.ap, o.PR.rp,
 				o.PY.ap, o.PY.rp,
 				o.PT.ap, o.PT.rp

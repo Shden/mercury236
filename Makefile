@@ -1,10 +1,7 @@
-CFLAGS = -g -std=c99
-LIBS = -lm
-OBJS = mercury236.o 
+OPTIONS = -std=c99
 
-
-mercury236: $(OBJS)
-	$(CC) -o mercury236 $(CFLAGS) $(OBJS) -lm
+mercury236: mercury236.c ../shc/time.c
+	$(CC) $^ $(OPTIONS) -o $@
 
 clean:
-	rm *.o mercury236
+	rm mercury236
