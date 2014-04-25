@@ -21,7 +21,7 @@
 #define _POSIX_SOURCE 	1		// POSIX compliant source
 #define UInt16		uint16_t
 #define byte		unsigned char
-#define TIME_OUT	50		// Mercury inter-command delay (ms)
+#define TIME_OUT	50 * 1000	// Mercury inter-command delay (mks)
 #define CH_TIME_OUT	2		// Channel timeout (sec)
 #define BSZ		255
 #define PM_ADDRESS	0		// RS485 addess of the power meter
@@ -840,7 +840,7 @@ int main(int argc, const char** args)
 	if (!dryRun)
 	{
 		// Open RS485 dongle
-		fd = open(dev, O_RDWR | O_NOCTTY | O_NDELAY );
+		fd = open(dev, O_RDWR | O_NOCTTY | O_NDELAY);
 		if (fd < 0)
 			exitFailure(dev);
 
