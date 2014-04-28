@@ -25,6 +25,7 @@
 #define CH_TIME_OUT	2		// Channel timeout (sec)
 #define BSZ		255
 #define PM_ADDRESS	0		// RS485 addess of the power meter
+#define TARRIF_NUM	2		// 2 tariffs supported
 #define OPT_DEBUG	"--debug"
 #define OPT_HELP	"--help"
 #define OPT_TEST_RUN	"--testRun"
@@ -153,16 +154,17 @@ typedef struct
 // Output results block
 typedef struct 
 {
-	P3V 	U;	// voltage
-	P3V	I;	// current
-	P3V	A;	// phase angles
-	P3VS	C;	// cos(f)
-	P3VS	P;	// current active power consumption
-	P3VS	S;	// current reactive power consumption
-	PWV	PR;	// power counters from reset
-	PWV	PY;	// power counters for yesterday
-	PWV	PT;	// power counters for today
-	float	f;	// grid frequency
+	P3V 	U;			// voltage
+	P3V	I;			// current
+	P3V	A;			// phase angles
+	P3VS	C;			// cos(f)
+	P3VS	P;			// current active power consumption
+	P3VS	S;			// current reactive power consumption
+	PWV	PR;			// power counters from reset (all tariffs)
+	PWV	PRT[TARRIF_NUM];	// power counters from reset (by tariffs)
+	PWV	PY;			// power counters for yesterday
+	PWV	PT;			// power counters for today
+	float	f;			// grid frequency
 } OutputBlock;
 
 // **** Enums
@@ -736,26 +738,28 @@ void printOutput(int format, OutputBlock o, int header)
 	switch(format)
 	{
 		case OF_HUMAN:
-			printf("  Voltage (V):             %8.2f %8.2f %8.2f\n\r", o.U.p1, o.U.p2, o.U.p3);
-			printf("  Current (A):             %8.2f %8.2f %8.2f\n\r", o.I.p1, o.I.p2, o.I.p3);
-			printf("  Cos(f):                  %8.2f %8.2f %8.2f (%8.2f)\n\r", o.C.p1, o.C.p2, o.C.p3, o.C.sum);
-			printf("  Frequency (Hz):          %8.2f\n\r", o.f);
-			printf("  Phase angles (deg):      %8.2f %8.2f %8.2f\n\r", o.A.p1, o.A.p2, o.A.p3);
-			printf("  Active power (W):        %8.2f %8.2f %8.2f (%8.2f)\n\r", o.P.p1, o.P.p2, o.P.p3, o.P.sum);
-			printf("  Reactive power (VA):     %8.2f %8.2f %8.2f (%8.2f)\n\r", o.S.p1, o.S.p2, o.S.p3, o.S.sum);
-			printf("  Total consumed (KW):     %8.2f %8.2f\n\r", o.PR.ap, o.PR.rp);
-			printf("  Yesterday consumed (KW): %8.2f %8.2f\n\r", o.PY.ap, o.PY.rp);
-			printf("  Today consumed (KW):     %8.2f %8.2f\n\r", o.PT.ap, o.PT.rp);
+			printf("  Voltage (V):             		%8.2f %8.2f %8.2f\n\r", o.U.p1, o.U.p2, o.U.p3);
+			printf("  Current (A):             		%8.2f %8.2f %8.2f\n\r", o.I.p1, o.I.p2, o.I.p3);
+			printf("  Cos(f):                  		%8.2f %8.2f %8.2f (%8.2f)\n\r", o.C.p1, o.C.p2, o.C.p3, o.C.sum);
+			printf("  Frequency (Hz):          		%8.2f\n\r", o.f);
+			printf("  Phase angles (deg):      		%8.2f %8.2f %8.2f\n\r", o.A.p1, o.A.p2, o.A.p3);
+			printf("  Active power (W):        		%8.2f %8.2f %8.2f (%8.2f)\n\r", o.P.p1, o.P.p2, o.P.p3, o.P.sum);
+			printf("  Reactive power (VA):     		%8.2f %8.2f %8.2f (%8.2f)\n\r", o.S.p1, o.S.p2, o.S.p3, o.S.sum);
+			printf("  Total consumed, all tariffs (KW):	%8.2f\n\r", o.PR.ap);
+			printf("    including day tariff (KW):		%8.2f\n\r", o.PRT[0].ap);
+			printf("    including night tariff (KW):	%8.2f\n\r", o.PRT[1].ap);
+			printf("  Yesterday consumed (KW): 		%8.2f\n\r", o.PY.ap);
+			printf("  Today consumed (KW):     		%8.2f\n\r", o.PT.ap);
 			break;
 			
 		case OF_CSV:
 			if (header)
 			{
 				// to be the same order as params below
-				printf("DT,U1,U2,U3,I1,I2,I3,P1,P2,P2,Psum,S1,S2,S3,Ssum,C1,C2,C3,Csum,F,A1,A2,A3,PRa,PRr,PYa,PYr,PTa,PTr\n\r");
+				printf("DT,U1,U2,U3,I1,I2,I3,P1,P2,P2,Psum,S1,S2,S3,Ssum,C1,C2,C3,Csum,F,A1,A2,A3,PRa,PYa,PTa\n\r");
 			
 			}
-			printf("%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n\r",
+			printf("%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n\r",
 				timeStamp,
 				o.U.p1, o.U.p2, o.U.p3,
 				o.I.p1, o.I.p2, o.I.p3,
@@ -764,14 +768,14 @@ void printOutput(int format, OutputBlock o, int header)
 				o.C.p1, o.C.p2, o.C.p3, o.C.sum,
 				o.f,
 				o.A.p1, o.A.p2, o.A.p3,
-				o.PR.ap, o.PR.rp,
-				o.PY.ap, o.PY.rp,
-				o.PT.ap, o.PT.rp
+				o.PR.ap, o.PRT[0].ap, o.PRT[1].ap,
+				o.PY.ap,
+				o.PT.ap
 			);
 			break;
 			
 		case OF_JSON:
-			printf("{\"U\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"I\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"CosF\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"F\":%.2f,\"A\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"P\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"S\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"PR\":{\"ap\":%.2f,\"rp\":%.2f},\"PY\":{\"ap\":%.2f,\"rp\":%.2f},\"PT\":{\"ap\":%.2f,\"rp\":%.2f}}\n\r",
+			printf("{\"U\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"I\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"CosF\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"F\":%.2f,\"A\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"P\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"S\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"PR\":{\"ap\":%.2f},\"PR-day\":{\"ap\":%.2f},\"PR-night\":{\"ap\":%.2f},\"PY\":{\"ap\":%.2f},\"PT\":{\"ap\":%.2f}}\n\r",
 				o.U.p1, o.U.p2, o.U.p3,
 				o.I.p1, o.I.p2, o.I.p3,
 				o.C.p1, o.C.p2, o.C.p3, o.C.sum,
@@ -779,9 +783,9 @@ void printOutput(int format, OutputBlock o, int header)
 				o.A.p1, o.A.p2, o.A.p3,
 				o.P.p1, o.P.p2, o.P.p3, o.P.sum,
 				o.S.p1, o.S.p2, o.S.p3, o.S.sum,
-				o.PR.ap, o.PR.rp,
-				o.PY.ap, o.PY.rp,
-				o.PT.ap, o.PT.rp
+				o.PR.ap, o.PRT[0].ap, o.PRT[1].ap,
+				o.PY.ap,
+				o.PT.ap
 			);
 			break;
 			
@@ -897,7 +901,9 @@ int main(int argc, const char** args)
 					exitFailure("Cannot collect reactive power consumption data.");
 
 				// Get power counter from reset, for yesterday and today
-				if (OK != getW(fd, &o.PR, PP_RESET, 0, 0) ||
+				if (OK != getW(fd, &o.PR, PP_RESET, 0, 0) ||		// total from reset
+    				    OK != getW(fd, &o.PRT[0], PP_RESET, 0, 0+1) ||	// day tariff from reset
+	    			    OK != getW(fd, &o.PRT[1], PP_RESET, 0, 1+1) ||	// night tariff from reset
 				    OK != getW(fd, &o.PY, PP_YESTERDAY, 0, 0) ||
 				    OK != getW(fd, &o.PT, PP_TODAY, 0, 0))
 					exitFailure("Cannot collect power counters data.");
