@@ -702,10 +702,10 @@ int getW(int ttyd, PWV* W, int periodId, int month, int tariffNo)
 	if (OK == checkResult)
 	{
 		Result_4x4b* res = (Result_4x4b*)buf;
-		W->ap = B4F(res->ap, 1000.0);
-		W->am = B4F(res->am, 1000.0);
-		W->rp = B4F(res->rp, 1000.0);
-		W->rm = B4F(res->rm, 1000.0);
+		W->ap = B4F(res->ap, 100.0);
+		W->am = B4F(res->am, 100.0);
+		W->rp = B4F(res->rp, 100.0);
+		W->rm = B4F(res->rm, 100.0);
 	}
 
 	return checkResult;
