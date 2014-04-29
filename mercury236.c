@@ -629,10 +629,10 @@ int getP(int ttyd, P3VS* P)
 	if (OK == checkResult)
 	{
 		Result_4x3b* res = (Result_4x3b*)buf;
-		P->p1 = B3F(res->p1, 1000.0);
-		P->p2 = B3F(res->p2, 1000.0);
-		P->p3 = B3F(res->p3, 1000.0);
-		P->sum = B3F(res->sum, 1000.0);
+		P->p1 = B3F(res->p1, 100.0);
+		P->p2 = B3F(res->p2, 100.0);
+		P->p3 = B3F(res->p3, 100.0);
+		P->sum = B3F(res->sum, 100.0);
 	}
 
 	return checkResult;
@@ -664,10 +664,10 @@ int getS(int ttyd, P3VS* S)
 	if (OK == checkResult)
 	{
 		Result_4x3b* res = (Result_4x3b*)buf;
-		S->p1 = B3F(res->p1, 1000.0);
-		S->p2 = B3F(res->p2, 1000.0);
-		S->p3 = B3F(res->p3, 1000.0);
-		S->sum = B3F(res->sum, 1000.0);
+		S->p1 = B3F(res->p1, 100.0);
+		S->p2 = B3F(res->p2, 100.0);
+		S->p3 = B3F(res->p3, 100.0);
+		S->sum = B3F(res->sum, 100.0);
 	}
 
 	return checkResult;
@@ -702,10 +702,10 @@ int getW(int ttyd, PWV* W, int periodId, int month, int tariffNo)
 	if (OK == checkResult)
 	{
 		Result_4x4b* res = (Result_4x4b*)buf;
-		W->ap = B4F(res->ap, 100.0);
-		W->am = B4F(res->am, 100.0);
-		W->rp = B4F(res->rp, 100.0);
-		W->rm = B4F(res->rm, 100.0);
+		W->ap = B4F(res->ap, 1000.0);
+		W->am = B4F(res->am, 1000.0);
+		W->rp = B4F(res->rp, 1000.0);
+		W->rm = B4F(res->rm, 1000.0);
 	}
 
 	return checkResult;
