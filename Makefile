@@ -1,6 +1,6 @@
 OPTIONS = -std=c99
 
-mercury236: mercury236.c ../shc/time.c
+mercury236: mercury236.c
 	$(CC) $^ $(OPTIONS) -o $@
 
 clean:

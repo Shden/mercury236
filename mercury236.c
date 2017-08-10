@@ -36,8 +36,14 @@
 
 int debugPrint = 0;
 
-void getDateTimeStr(char *, int, time_t);
+void getDateTimeStr(char *str, int length, time_t time)
+{
+	struct tm *ti = localtime(&time);
 
+	snprintf(str, length, "%4d-%02d-%02d %02d:%02d:%02d",
+		ti->tm_year+1900, ti->tm_mon+1, ti->tm_mday,
+		ti->tm_hour, ti->tm_min, ti->tm_sec);
+}
 
 // ***** Commands
 // Test connection
@@ -152,7 +158,7 @@ typedef struct
 } PWV;
 
 // Output results block
-typedef struct 
+typedef struct
 {
 	P3V 	U;			// voltage
 	P3V	I;			// current
@@ -193,7 +199,7 @@ typedef enum
 	EXIT_FAIL = 1
 } ExitCode;
 
-typedef enum 			// How much energy consumed: 
+typedef enum 			// How much energy consumed:
 {
 	PP_RESET = 0,		// from reset
 	PP_YTD = 1,		// this year
@@ -272,7 +278,7 @@ int nb_read_impl(int fd, byte* buf, int sz)
 		exitFailure("Select failed.");
 	if (r == 0)
 		return 0;
-	
+
 	return read(fd, buf, BSZ);
 }
 
@@ -734,7 +740,7 @@ void printOutput(int format, OutputBlock o, int header)
 	// getting current time for timestamp
 	char timeStamp[BSZ];
 	getDateTimeStr(timeStamp, BSZ, time(NULL));
-	
+
 	switch(format)
 	{
 		case OF_HUMAN:
@@ -751,13 +757,13 @@ void printOutput(int format, OutputBlock o, int header)
 			printf("  Yesterday consumed (KW): 		%8.2f\n\r", o.PY.ap);
 			printf("  Today consumed (KW):     		%8.2f\n\r", o.PT.ap);
 			break;
-			
+
 		case OF_CSV:
 			if (header)
 			{
 				// to be the same order as params below
 				printf("DT,U1,U2,U3,I1,I2,I3,P1,P2,P2,Psum,S1,S2,S3,Ssum,C1,C2,C3,Csum,F,A1,A2,A3,PRa,PYa,PTa\n\r");
-			
+
 			}
 			printf("%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n\r",
 				timeStamp,
@@ -773,7 +779,7 @@ void printOutput(int format, OutputBlock o, int header)
 				o.PT.ap
 			);
 			break;
-			
+
 		case OF_JSON:
 			printf("{\"U\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"I\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"CosF\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"F\":%.2f,\"A\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"P\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"S\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"PR\":{\"ap\":%.2f},\"PR-day\":{\"ap\":%.2f},\"PR-night\":{\"ap\":%.2f},\"PY\":{\"ap\":%.2f},\"PT\":{\"ap\":%.2f}}\n\r",
 				o.U.p1, o.U.p2, o.U.p3,
@@ -788,7 +794,7 @@ void printOutput(int format, OutputBlock o, int header)
 				o.PT.ap
 			);
 			break;
-			
+
 		default:
 			exitFailure("Invalid formatting.");
 			break;
@@ -809,7 +815,7 @@ int main(int argc, const char** args)
 		exit(EXIT_FAIL);
 	}
 	strncpy(dev, args[1], BSZ);
-		
+
 	// see the command line options
 	for (int i=2; i<argc; i++)
 	{
@@ -929,4 +935,3 @@ int main(int argc, const char** args)
 
 	exit(EXIT_OK);
 }
-
