@@ -22,7 +22,7 @@ Output formatting:
 
 then try to run with json switch:  
 ```
-./mercury /dev/ttyS0 --json  
+./mercury236 /dev/ttyS0 --json  
 {
                 "U": {
                                "p1": 0.35,
