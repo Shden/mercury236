@@ -1,5 +1,5 @@
-# mercury236
-Mercury 236 power meter communication utility.
+# Mercury 236/Меркурий 236
+Mercury 236 (http://www.incotexcom.ru/m236art.htm) power meter communication utility.
 
 RS485 USB dongle is used to connect to the power meter and to collect grid power measures
 including voltage, current, consumption power, counters, cos(f) etc.
