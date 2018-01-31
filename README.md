@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/Shden/mercury236.svg?branch=master)](https://travis-ci.org/Shden/mercury236)
+
 # Mercury/Меркурий 236
 Mercury 236 (http://www.incotexcom.ru/m236art.htm) power meter communication utility.
 
