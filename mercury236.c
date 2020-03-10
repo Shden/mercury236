@@ -33,8 +33,10 @@
 #define OPT_CSV		"--csv"
 #define OPT_JSON	"--json"
 #define OPT_HEADER	"--header"
+#define OPT_ECHO	"--echo"
 
 int debugPrint = 0;
+int echoSet = 0;
 
 void getDateTimeStr(char *str, int length, time_t time)
 {
@@ -234,6 +236,13 @@ UInt16 ModRTU_CRC(byte* buf, int len)
         crc >>= 1;                    // Just shift right
     }
   }
+
+ if (debugPrint)
+ {
+    printf("CRC is: %d\n\r\t", crc);
+    printf("\n\r");
+ }
+
   // Note, this number has low and high bytes swapped, so use it accordingly (or swap bytes)
   return crc;
 }
@@ -295,13 +304,33 @@ int nb_read(int fd, byte* buf, int sz)
 // -- Check 1 byte responce
 int checkResult_1b(byte* buf, int len)
 {
+//	if (len != sizeof(Result_1b))
+//		return WRONG_RESULT_SIZE;
 	if (len != sizeof(Result_1b))
-		return WRONG_RESULT_SIZE;
+	{
+	    if (debugPrint)
+	    {
+		printf("WRONG_RESULT_SIZE: %d\n\r\t", len);
+		printf("\n\r");
+	    }
+
+	    return WRONG_RESULT_SIZE;
+	}
 
 	Result_1b *res = (Result_1b*)buf;
 	UInt16 crc = ModRTU_CRC(buf, len - sizeof(UInt16));
+//	if (crc != res->CRC)
+//		return WRONG_CRC;
 	if (crc != res->CRC)
-		return WRONG_CRC;
+	{
+	    if (debugPrint)
+	    {
+		printf("WRONG_CRC: %d\n\r\t", crc);
+		printf("\n\r");
+	    }
+
+	    return WRONG_CRC;
+	}
 
 	return res->result & 0x0F;
 }
@@ -362,6 +391,16 @@ int checkResult_4x4b(byte* buf, int len)
 	return OK;
 }
 
+int suppressEcho(byte* buf, int write_len, int resp_len)
+{
+    if (resp_len > write_len)
+	memmove(&buf[0], &buf[write_len], resp_len-write_len);
+
+    printPackage(buf, resp_len-write_len, IN);
+
+    return resp_len-write_len;
+}
+
 // -- Check the communication channel
 int checkChannel(int ttyd)
 {
@@ -381,6 +420,10 @@ int checkChannel(int ttyd)
 		return CHECK_CHANNEL_TIME_OUT;
 
 	printPackage((byte*)buf, len, IN);
+
+	if (echoSet)
+		len = suppressEcho((byte*)buf, sizeof(testCmd), len);
+
 
 	return checkResult_1b(buf, len);
 }
@@ -403,7 +446,13 @@ int initConnection(int ttyd)
 	// Read initialisation result
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
+	if (len == 0)
+		return CHECK_CHANNEL_TIME_OUT;
+
 	printPackage((byte*)buf, len, IN);
+
+	if (echoSet)
+		len = suppressEcho((byte*)buf, sizeof(initCmd), len);
 
 	return checkResult_1b(buf, len);
 }
@@ -422,6 +471,9 @@ int closeConnection(int ttyd)
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
+
+	if (echoSet)
+		len = suppressEcho((byte*)buf, sizeof(byeCmd), len);
 
 	return checkResult_1b(buf, len);
 }
@@ -461,6 +513,9 @@ int getU(int ttyd, P3V* U)
 	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
+	if (echoSet)
+		len = suppressEcho((byte*)buf, sizeof(getUCmd), len);
+
 	// Check and decode result
 	int checkResult = checkResult_3x3b(buf, len);
 	if (OK == checkResult)
@@ -495,6 +550,9 @@ int getI(int ttyd, P3V* I)
 	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
+	if (echoSet)
+		len = suppressEcho((byte*)buf, sizeof(getICmd), len);
+
 	// Check and decode result
 	int checkResult = checkResult_3x3b(buf, len);
 	if (OK == checkResult)
@@ -528,6 +586,9 @@ int getCosF(int ttyd, P3VS* C)
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
+
+	if (echoSet)
+		len = suppressEcho((byte*)buf, sizeof(getCosCmd), len);
 
 	// Check and decode result
 	int checkResult = checkResult_4x3b(buf, len);
@@ -564,6 +625,9 @@ int getF(int ttyd, float *f)
 	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
+	if (echoSet)
+		len = suppressEcho((byte*)buf, sizeof(getFCmd), len);
+
 	// Check and decode result
 	int checkResult = checkResult_3b(buf, len);
 	if (OK == checkResult)
@@ -595,6 +659,9 @@ int getA(int ttyd, P3V* A)
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
+
+	if (echoSet)
+		len = suppressEcho((byte*)buf, sizeof(getACmd), len);
 
 	// Check and decode result
 	int checkResult = checkResult_3x3b(buf, len);
@@ -630,6 +697,9 @@ int getP(int ttyd, P3VS* P)
 	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
+	if (echoSet)
+		len = suppressEcho((byte*)buf, sizeof(getPCmd), len);
+
 	// Check and decode result
 	int checkResult = checkResult_4x3b(buf, len);
 	if (OK == checkResult)
@@ -664,6 +734,9 @@ int getS(int ttyd, P3VS* S)
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
+
+	if (echoSet)
+		len = suppressEcho((byte*)buf, sizeof(getSCmd), len);
 
 	// Check and decode result
 	int checkResult = checkResult_4x3b(buf, len);
@@ -703,6 +776,9 @@ int getW(int ttyd, PWV* W, int periodId, int month, int tariffNo)
 	int len = nb_read(ttyd, buf, BSZ);
 	printPackage((byte*)buf, len, IN);
 
+	if (echoSet)
+		len = suppressEcho((byte*)buf, sizeof(getWCmd), len);
+
 	// Check and decode result
 	int checkResult = checkResult_4x4b(buf, len);
 	if (OK == checkResult)
@@ -723,6 +799,7 @@ void printUsage()
 	printf("Usage: mercury236 RS485 [OPTIONS] ...\n\r\n\r");
 	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required\n\r");
 	printf("  %s\tto print extra debug info\n\r", OPT_DEBUG);
+	printf("  %s\tsuppress ECHO from response if jamper ECHO installed on to Mercury-221\n\r", OPT_ECHO);
 	printf("  %s\tdry run to see output sample, no hardware required\n\r", OPT_TEST_RUN);
 	printf("\n\r");
 	printf("  Output formatting:\n\r");
@@ -821,6 +898,8 @@ int main(int argc, const char** args)
 	{
 		if (!strcmp(OPT_DEBUG, args[i]))
 			debugPrint = 1;
+		else if (!strcmp(OPT_ECHO, args[i]))
+			echoSet = 1;
 		else if (!strcmp(OPT_TEST_RUN, args[i]))
 			dryRun = 1;
 		else if (!strcmp(OPT_HUMAN, args[i]))
