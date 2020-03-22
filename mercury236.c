@@ -21,7 +21,7 @@
 #define _POSIX_SOURCE 	1		// POSIX compliant source
 #define UInt16		uint16_t
 #define byte		unsigned char
-#define TIME_OUT	10 * 1000	// Mercury inter-command delay (ms)
+#define TIME_OUT	2 * 1000	// Mercury inter-command delay (ms)
 #define CH_TIME_OUT	3		// Channel timeout (sec)
 #define BSZ		255
 #define PM_ADDRESS	0		// RS485 addess of the power meter
