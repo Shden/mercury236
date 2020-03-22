@@ -879,9 +879,7 @@ int main(int argc, const char** args)
 		serialPortSettings.c_cflag &= ~CSIZE;				/* Clears the mask for setting the data size             */
 		serialPortSettings.c_cflag |=  CS7;				/* Set the data bits = 8                                 */
 
-		serialPortSettings.c_cflag &= ~CRTSCTS;				/* No Hardware flow Control                         */
 		serialPortSettings.c_cflag |= CREAD | CLOCAL;			/* Enable receiver,Ignore Modem Control lines       */ 
-
 
 		serialPortSettings.c_iflag &= ~(IXON | IXOFF | IXANY);		/* Disable XON/XOFF flow control both i/p and o/p */
 		serialPortSettings.c_iflag &= ~(ICANON | ECHO | ECHOE | ISIG);	/* Non Cannonical mode                            */
