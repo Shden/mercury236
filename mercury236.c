@@ -803,20 +803,20 @@ void printOutput(int format, OutputBlock o, int header)
 
 int main(int argc, const char** args)
 {
-	int fd, dryRun = 0, format = OF_HUMAN, header = 0;
-	struct termios oldtio, newtio;
-	char dev[BSZ];
-
-	// get RS485 address (1st required param)
+	// must have RS485 address (1st required param)
 	if (argc < 2)
 	{
 		printf("Error: no RS485 device specified\n\r\n\r");
 		printUsage();
 		exit(EXIT_FAIL);
 	}
+
+	// get command line options
+	int dryRun = 0, format = OF_HUMAN, header = 0; 
+
+	char dev[BSZ];
 	strncpy(dev, args[1], BSZ);
 
-	// see the command line options
 	for (int i=2; i<argc; i++)
 	{
 		if (!strcmp(OPT_DEBUG, args[i]))
@@ -849,28 +849,54 @@ int main(int argc, const char** args)
 
 	if (!dryRun)
 	{
+		//struct termios oldtio, newtio;
+
 		// Open RS485 dongle
-		fd = open(dev, O_RDWR | O_NOCTTY | O_NDELAY);
+		// O_RDWR Read/Write access to serial port
+		// O_NOCTTY - No terminal will control the process  
+		// O_NDELAY - Non blocking open
+		int fd = open(dev, O_RDWR | O_NOCTTY | O_NDELAY);
+
 		if (fd < 0)
-			exitFailure(dev);
+		{
+			printf("Cannot open %s terminal channel.\n\r", dev);
+			exitFailure("Communication failed.");
+		}
 
 		fcntl(fd, F_SETFL, 0);
 
-		tcgetattr(fd, &oldtio); /* save current port settings */
+		//tcgetattr(fd, &oldtio); /* save current port settings */
 
-		bzero(&newtio, sizeof(newtio));
+		struct termios serialPortSettings;
+		bzero(&serialPortSettings, sizeof(serialPortSettings));
 
-		cfsetispeed(&newtio, BAUDRATE);
-		cfsetospeed(&newtio, BAUDRATE);
+		cfsetispeed(&serialPortSettings, BAUDRATE);
+		cfsetospeed(&serialPortSettings, BAUDRATE);
 
-		newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-	//	newtio.c_cflag = BAUDRATE | CRTSCTS | CS8 | CLOCAL | CREAD;
-	//	newtio.c_cflag = BAUDRATE | CS8 | CREAD;
-		newtio.c_iflag = IGNPAR;
-		newtio.c_oflag = 0;
+		// variant 22.03.20
+		serialPortSettings.c_cflag &= PARENB;				/* Disables the Parity Enable bit(PARENB),So No Parity   */
+		serialPortSettings.c_cflag &= ~CSTOPB;				/* CSTOPB = 2 Stop bits,here it is cleared so 1 Stop bit */
+		serialPortSettings.c_cflag &= ~CSIZE;				/* Clears the mask for setting the data size             */
+		serialPortSettings.c_cflag |=  CS7;				/* Set the data bits = 8                                 */
 
-		cfmakeraw(&newtio);
-		tcsetattr(fd, TCSANOW, &newtio);
+		serialPortSettings.c_cflag &= ~CRTSCTS;				/* No Hardware flow Control                         */
+		serialPortSettings.c_cflag |= CREAD | CLOCAL;			/* Enable receiver,Ignore Modem Control lines       */ 
+
+
+		serialPortSettings.c_iflag &= ~(IXON | IXOFF | IXANY);		/* Disable XON/XOFF flow control both i/p and o/p */
+		serialPortSettings.c_iflag &= ~(ICANON | ECHO | ECHOE | ISIG);	/* Non Cannonical mode                            */
+
+		serialPortSettings.c_oflag &= ~OPOST;				/*No Output Processing*/
+		// end variant 22.03.20
+
+	// 	serialPortSettings.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+	// //	serialPortSettings.c_cflag = BAUDRATE | CRTSCTS | CS8 | CLOCAL | CREAD;
+	// //	serialPortSettings.c_cflag = BAUDRATE | CS8 | CREAD;
+	// 	serialPortSettings.c_iflag = IGNPAR;
+	// 	serialPortSettings.c_oflag = 0;
+
+	// 	cfmakeraw(&serialPortSettings);
+		tcsetattr(fd, TCSANOW, &serialPortSettings);
 
 		switch(checkChannel(fd))
 		{
@@ -915,7 +941,7 @@ int main(int argc, const char** args)
 					exitFailure("Cannot collect power counters data.");
 
 				if (OK != closeConnection(fd))
-					exitFailure("Power meter connection closing error.");
+					exitFailure("Power meter connection closing error."); 
 
 				break;
 
@@ -927,7 +953,7 @@ int main(int argc, const char** args)
 		}
 
 		close(fd);
-		tcsetattr(fd, TCSANOW, &oldtio);
+		//tcsetattr(fd, TCSANOW, &oldtio);
 	}
 
 	// print the results
