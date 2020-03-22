@@ -21,8 +21,8 @@
 #define _POSIX_SOURCE 	1		// POSIX compliant source
 #define UInt16		uint16_t
 #define byte		unsigned char
-#define TIME_OUT	10 * 1000	// Mercury inter-command delay (mks)
-#define CH_TIME_OUT	2		// Channel timeout (sec)
+#define TIME_OUT	50 * 1000	// Mercury inter-command delay (ms)
+#define CH_TIME_OUT	10		// Channel timeout (sec)
 #define BSZ		255
 #define PM_ADDRESS	0		// RS485 addess of the power meter
 #define TARRIF_NUM	2		// 2 tariffs supported
@@ -894,6 +894,7 @@ int main(int argc, const char** args)
 	// 	serialPortSettings.c_oflag = 0;
 
 	// 	cfmakeraw(&serialPortSettings);
+
 		tcsetattr(fd, TCSANOW, &serialPortSettings);
 
 		switch(checkChannel(fd))
