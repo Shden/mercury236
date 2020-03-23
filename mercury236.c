@@ -908,6 +908,7 @@ int main(int argc, const char** args)
 			case OK:
 				if (OK != initConnection(fd))
 				{
+					closeConnection(fd);
 					close(fd);
 					exitFailure("Power meter connection initialisation error.");
 				}
@@ -915,6 +916,7 @@ int main(int argc, const char** args)
 				// Get voltage by phases
 				if (OK != getU(fd, &o.U))
 				{
+					closeConnection(fd);
 					close(fd);
 					exitFailure("Cannot collect voltage data.");
 				}
@@ -922,6 +924,7 @@ int main(int argc, const char** args)
 				// Get current by phases
 				if (OK != getI(fd, &o.I))
 				{
+					closeConnection(fd);
 					close(fd);
 					exitFailure("Cannot collect current data.");
 				}
@@ -929,6 +932,7 @@ int main(int argc, const char** args)
 				// Get power cos(f) by phases
 				if (OK != getCosF(fd, &o.C))
 				{
+					closeConnection(fd);
 					close(fd);
 					exitFailure("Cannot collect cos(f) data.");
 				}
@@ -936,6 +940,7 @@ int main(int argc, const char** args)
 				// Get grid frequency
 				if (OK != getF(fd, &o.f))
 				{
+					closeConnection(fd);
 					close(fd);
 					exitFailure("Cannot collect grid frequency data.");
 				
@@ -944,6 +949,7 @@ int main(int argc, const char** args)
 				// Get phase angles
 				if (OK != getA(fd, &o.A))
 				{
+					closeConnection(fd);
 					close(fd);
 					exitFailure("Cannot collect phase angles data.");
 				
@@ -952,6 +958,7 @@ int main(int argc, const char** args)
 				// Get active power consumption by phases
 				if (OK != getP(fd, &o.P))
 				{
+					closeConnection(fd);
 					close(fd);
 					exitFailure("Cannot collect active power consumption data.");
 				}
@@ -959,6 +966,7 @@ int main(int argc, const char** args)
 				// Get reactive power consumption by phases
 				if (OK != getS(fd, &o.S))
 				{
+					closeConnection(fd);
 					close(fd);
 					exitFailure("Cannot collect reactive power consumption data.");
 				}
@@ -970,6 +978,7 @@ int main(int argc, const char** args)
 				    OK != getW(fd, &o.PY, PP_YESTERDAY, 0, 0) ||
 				    OK != getW(fd, &o.PT, PP_TODAY, 0, 0))
 				{
+					closeConnection(fd);
 					close(fd);
 					exitFailure("Cannot collect power counters data.");
 				}
