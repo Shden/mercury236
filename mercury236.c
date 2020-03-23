@@ -275,7 +275,10 @@ int nb_read_impl(int fd, byte* buf, int sz)
 
 	int r = select(fd + 1, &set, NULL, NULL, &timeout);
 	if (r < 0)
+	{
+		close(fd);
 		exitFailure("Select failed.");
+	}
 	if (r == 0)
 		return 0;
 
@@ -288,7 +291,10 @@ int nb_read(int fd, byte* buf, int sz)
 {
 	int r = nb_read_impl(fd, buf, sz);
 	if (r == 0)
+	{
+		close(fd);
 		exitFailure("Communication channel timeout.");
+	}
 	return r;
 }
 
