@@ -383,6 +383,7 @@ int checkChannel(int ttyd)
 	// Get responce
 	byte buf[BSZ];
 	int len = nb_read_impl(ttyd, buf, BSZ);
+	usleep(TIME_OUT);
 	if (len == 0)
 		return CHECK_CHANNEL_TIME_OUT;
 
@@ -409,6 +410,7 @@ int initConnection(int ttyd)
 	// Read initialisation result
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
+	usleep(TIME_OUT);
 	printPackage((byte*)buf, len, IN);
 
 	return checkResult_1b(buf, len);
@@ -427,6 +429,7 @@ int closeConnection(int ttyd)
 	// Read closing responce
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
+	usleep(TIME_OUT);
 	printPackage((byte*)buf, len, IN);
 
 	return checkResult_1b(buf, len);
@@ -465,6 +468,7 @@ int getU(int ttyd, P3V* U)
 	// Read responce
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
+	usleep(TIME_OUT);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -499,6 +503,7 @@ int getI(int ttyd, P3V* I)
 	// Read responce
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
+	usleep(TIME_OUT);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -533,6 +538,7 @@ int getCosF(int ttyd, P3VS* C)
 	// Read responce
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
+	usleep(TIME_OUT);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -568,6 +574,7 @@ int getF(int ttyd, float *f)
 	// Read responce
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
+	usleep(TIME_OUT);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -600,6 +607,7 @@ int getA(int ttyd, P3V* A)
 	// Read responce
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
+	usleep(TIME_OUT);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -634,6 +642,7 @@ int getP(int ttyd, P3VS* P)
 	// Read responce
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
+	usleep(TIME_OUT);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -669,6 +678,7 @@ int getS(int ttyd, P3VS* S)
 	// Read responce
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
+	usleep(TIME_OUT);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
@@ -707,6 +717,7 @@ int getW(int ttyd, PWV* W, int periodId, int month, int tariffNo)
 	// Read responce
 	byte buf[BSZ];
 	int len = nb_read(ttyd, buf, BSZ);
+	usleep(TIME_OUT);
 	printPackage((byte*)buf, len, IN);
 
 	// Check and decode result
