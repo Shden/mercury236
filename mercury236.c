@@ -21,7 +21,7 @@
 #define _POSIX_SOURCE 	1		// POSIX compliant source
 #define UInt16		uint16_t
 #define byte		unsigned char
-#define TIME_OUT	0 * 1000	// Mercury inter-command delay (ms)
+#define TIME_OUT	25 * 1000	// Mercury inter-command delay (ms)
 #define CH_TIME_OUT	1		// Channel timeout (sec)
 #define BSZ		255
 #define PM_ADDRESS	0		// RS485 addess of the power meter
@@ -883,7 +883,7 @@ int main(int argc, const char** args)
 		serialPortSettings.c_cflag &= PARENB;				/* Disables the Parity Enable bit(PARENB),So No Parity   */
 		serialPortSettings.c_cflag &= ~CSTOPB;				/* CSTOPB = 2 Stop bits,here it is cleared so 1 Stop bit */
 		serialPortSettings.c_cflag &= ~CSIZE;				/* Clears the mask for setting the data size             */
-		serialPortSettings.c_cflag |=  CS7;				/* Set the data bits = 8                                 */
+		serialPortSettings.c_cflag |=  CS8;				/* Set the data bits = 8                                 */
 
 		serialPortSettings.c_cflag |= CREAD | CLOCAL;			/* Enable receiver,Ignore Modem Control lines       */ 
 
