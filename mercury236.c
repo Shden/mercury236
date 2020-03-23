@@ -17,12 +17,12 @@
 #include <time.h>
 
 #pragma pack(1)
-#define BAUDRATE 	B9600		// 9600 baud
+#define BAUDRATE 	B115200
 #define _POSIX_SOURCE 	1		// POSIX compliant source
 #define UInt16		uint16_t
 #define byte		unsigned char
 #define TIME_OUT	0 * 1000	// Mercury inter-command delay (ms)
-#define CH_TIME_OUT	3		// Channel timeout (sec)
+#define CH_TIME_OUT	1		// Channel timeout (sec)
 #define BSZ		255
 #define PM_ADDRESS	0		// RS485 addess of the power meter
 #define TARRIF_NUM	2		// 2 tariffs supported
