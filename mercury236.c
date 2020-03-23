@@ -21,7 +21,7 @@
 #define _POSIX_SOURCE 	1		// POSIX compliant source
 #define UInt16		uint16_t
 #define byte		unsigned char
-#define TIME_OUT	2 * 1000	// Mercury inter-command delay (ms)
+#define TIME_OUT	0 * 1000	// Mercury inter-command delay (ms)
 #define CH_TIME_OUT	3		// Channel timeout (sec)
 #define BSZ		255
 #define PM_ADDRESS	0		// RS485 addess of the power meter
@@ -901,35 +901,61 @@ int main(int argc, const char** args)
 		{
 			case OK:
 				if (OK != initConnection(fd))
+				{
+					close(fd);
 					exitFailure("Power meter connection initialisation error.");
+				}
 
 				// Get voltage by phases
 				if (OK != getU(fd, &o.U))
+				{
+					close(fd);
 					exitFailure("Cannot collect voltage data.");
+				}
 
 				// Get current by phases
 				if (OK != getI(fd, &o.I))
+				{
+					close(fd);
 					exitFailure("Cannot collect current data.");
+				}
 
 				// Get power cos(f) by phases
 				if (OK != getCosF(fd, &o.C))
+				{
+					close(fd);
 					exitFailure("Cannot collect cos(f) data.");
+				}
 
 				// Get grid frequency
 				if (OK != getF(fd, &o.f))
+				{
+					close(fd);
 					exitFailure("Cannot collect grid frequency data.");
+				
+				}
 
 				// Get phase angles
 				if (OK != getA(fd, &o.A))
+				{
+					close(fd);
 					exitFailure("Cannot collect phase angles data.");
+				
+				}
 
 				// Get active power consumption by phases
 				if (OK != getP(fd, &o.P))
+				{
+					close(fd);
 					exitFailure("Cannot collect active power consumption data.");
+				}
 
 				// Get reactive power consumption by phases
 				if (OK != getS(fd, &o.S))
+				{
+					close(fd);
 					exitFailure("Cannot collect reactive power consumption data.");
+				}
 
 				// Get power counter from reset, for yesterday and today
 				if (OK != getW(fd, &o.PR, PP_RESET, 0, 0) ||		// total from reset
@@ -937,17 +963,25 @@ int main(int argc, const char** args)
 	    			    OK != getW(fd, &o.PRT[1], PP_RESET, 0, 1+1) ||	// night tariff from reset
 				    OK != getW(fd, &o.PY, PP_YESTERDAY, 0, 0) ||
 				    OK != getW(fd, &o.PT, PP_TODAY, 0, 0))
+				{
+					close(fd);
 					exitFailure("Cannot collect power counters data.");
+				}
 
 				if (OK != closeConnection(fd))
+				{
+					close(fd);
 					exitFailure("Power meter connection closing error."); 
+				}
 
 				break;
 
 			case CHECK_CHANNEL_TIME_OUT:
+				close(fd);
 				exitFailure("Power meter channel time out.");
 
 			default:
+				close(fd);
 				exitFailure("Power meter communication channel test failed.");
 		}
 
