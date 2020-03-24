@@ -490,7 +490,7 @@ int getU(int ttyd, P3V* U)
 	getUCmd.CRC = ModRTU_CRC((byte*)&getUCmd, sizeof(getUCmd) - sizeof(UInt16));
 
 	byte buf[BSZ];
-	sendReceiveRetrieve(ttyd, (byte*)&getUCmd, sizeof(getUCmd), buf, BSZ);
+	int len = sendReceiveRetrieve(ttyd, (byte*)&getUCmd, sizeof(getUCmd), buf, BSZ);
 
 	// Check and decode result
 	int checkResult = checkResult_3x3b(buf, len);
