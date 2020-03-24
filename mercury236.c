@@ -34,6 +34,7 @@
 #define OPT_JSON			"--json"
 #define OPT_HEADER			"--header"
 #define MAX_SEND_RECIEVE_ATTEMPTS	3
+#define TIME_BEFORE_RETRIEVE		5 * 1000 * 1000	// Wait 5 sec before retrieve command
 
 int debugPrint = 0;
 
@@ -456,7 +457,10 @@ int sendReceiveRetrieve(int ttyd, byte* commandBuff, int commandLen,
 			return len;
 		}
 		else
-			continue;		
+		{
+			usleep(TIME_BEFORE_RETRIEVE);
+			continue;
+		}		
 	}
 	closeConnection(ttyd);
 	close(ttyd);
