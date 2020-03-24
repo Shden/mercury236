@@ -17,22 +17,23 @@
 #include <time.h>
 
 #pragma pack(1)
-#define BAUDRATE 	B9600
-#define _POSIX_SOURCE 	1		// POSIX compliant source
-#define UInt16		uint16_t
-#define byte		unsigned char
-#define TIME_OUT	2 * 1000	// Mercury inter-command delay (ms)
-#define CH_TIME_OUT	5		// Channel timeout (sec)
-#define BSZ		255
-#define PM_ADDRESS	0		// RS485 addess of the power meter
-#define TARRIF_NUM	2		// 2 tariffs supported
-#define OPT_DEBUG	"--debug"
-#define OPT_HELP	"--help"
-#define OPT_TEST_RUN	"--testRun"
-#define OPT_HUMAN	"--human"
-#define OPT_CSV		"--csv"
-#define OPT_JSON	"--json"
-#define OPT_HEADER	"--header"
+#define BAUDRATE 			B9600
+#define _POSIX_SOURCE 			1		// POSIX compliant source
+#define UInt16				uint16_t
+#define byte				unsigned char
+#define TIME_OUT			2 * 1000	// Mercury inter-command delay (ms)
+#define CH_TIME_OUT			5		// Channel timeout (sec)
+#define BSZ				255
+#define PM_ADDRESS			0		// RS485 addess of the power meter
+#define TARRIF_NUM			2		// 2 tariffs supported
+#define OPT_DEBUG			"--debug"
+#define OPT_HELP			"--help"
+#define OPT_TEST_RUN			"--testRun"
+#define OPT_HUMAN			"--human"
+#define OPT_CSV				"--csv"
+#define OPT_JSON			"--json"
+#define OPT_HEADER			"--header"
+#define MAX_SEND_RECIEVE_ATTEMPTS	3
 
 int debugPrint = 0;
 
@@ -366,6 +367,33 @@ int checkResult_4x4b(byte* buf, int len)
 		return WRONG_CRC;
 
 	return OK;
+}
+
+// -- Sends command and receives responce with configured retrieves
+int sendReceiveRetrieve(int ttyd, byte* commandBuff, int commandLen,
+	byte* responceBuff, int responceBuffSize)
+{
+	for (int i = 0; i < MAX_SEND_RECIEVE_ATTEMPTS; i++)
+	{
+		printPackage(commandBuff, commandLen, OUT);
+
+		// Send command
+		write(ttyd, commandBuff, commandLen);
+		usleep(TIME_OUT);
+
+		// Get responce
+		int len = nb_read_impl(ttyd, responceBuff, responceBuffSize);
+		if (len)
+		{
+			printPackage(responceBuff, len, IN);
+			return len;
+		}
+		else
+			continue;		
+	}
+	closeConnection(ttyd);
+	close(ttyd);
+	exitFailure("Command max attempts exceeded.");
 }
 
 // -- Check the communication channel
