@@ -192,7 +192,8 @@ typedef enum
 	CHANNEL_ISNT_OPEN = 5,
 	WRONG_RESULT_SIZE = 256,
 	WRONG_CRC = 257,
-	CHECK_CHANNEL_TIME_OUT = 258
+	CHECK_CHANNEL_FAILURE = 258,
+	COMMUNICATION_ERROR = 259
 } ResultCode;
 
 typedef enum
@@ -241,12 +242,12 @@ UInt16 ModRTU_CRC(byte* buf, int len)
 }
 
 
-// -- Abnormal termination
-void exitFailure(const char* msg)
-{
-	perror(msg);
-	exit(EXIT_FAIL);
-}
+// // -- Abnormal termination
+// void exitFailure(const char* msg)
+// {
+// 	perror(msg);
+// 	exit(EXIT_FAIL);
+// }
 
 // -- Print out data buffer in hex
 void printPackage(byte *data, int size, int isin)
@@ -260,9 +261,21 @@ void printPackage(byte *data, int size, int isin)
 	}
 }
 
-// -- Non-blocking file read with timeout
-// -- Returns 0 if timed out.
-int nb_read_impl(int fd, byte* buf, int sz)
+// -- Print out error code
+void printError(int code)
+{
+	if (debugPrint)
+		printf("Error received: %d\n\r", code);
+}
+
+/* -- Non-blocking file read with timeout
+ *
+ *    Returns: 
+ *	0 if timed out.
+ *	< 0 if select error
+ *	number of bytes read if success
+ */
+int nb_read(int fd, byte* buf, int sz)
 {
 	fd_set set;
 	struct timeval timeout;
@@ -276,28 +289,10 @@ int nb_read_impl(int fd, byte* buf, int sz)
 	timeout.tv_usec = 0;
 
 	int r = select(fd + 1, &set, NULL, NULL, &timeout);
-	if (r < 0)
-	{
-		close(fd);
-		exitFailure("Select failed.");
-	}
-	if (r == 0)
-		return 0;
-
-	return read(fd, buf, BSZ);
-}
-
-// -- Non-blocking file read with timeout
-// -- Aborts if timed out.
-int nb_read(int fd, byte* buf, int sz)
-{
-	int r = nb_read_impl(fd, buf, sz);
-	if (r == 0)
-	{
-		close(fd);
-		exitFailure("Communication channel timeout.");
-	}
-	return r;
+	if (r > 0)
+		return read(fd, buf, BSZ);
+	else 
+		return r;
 }
 
 // -- Check 1 byte responce
@@ -311,7 +306,7 @@ int checkResult_1b(byte* buf, int len)
 	if (crc != res->CRC)
 		return WRONG_CRC;
 
-	return res->result & 0x0F;
+	return OK; // res->result & 0x0F;
 }
 
 // -- Check 3 byte responce
@@ -370,31 +365,87 @@ int checkResult_4x4b(byte* buf, int len)
 	return OK;
 }
 
-// -- Check the communication channel
+/* 
+ * Sends command and receives responce, one attempt.
+ *
+ * Returns:
+ * 	> 0 - nuber of bytes received
+ * 	<= 0 - error occured
+ */
+int sendReceiveOnce(int ttyd, byte* commandBuff, int commandLen,
+	byte* responceBuff, int responceBuffSize)
+{
+	printPackage(commandBuff, commandLen, OUT);
+
+	// Send command
+	write(ttyd, commandBuff, commandLen);
+	usleep(TIME_OUT);
+
+	// Get responce
+	int len = nb_read(ttyd, responceBuff, responceBuffSize);
+	if (len)
+		printPackage(responceBuff, len, IN);
+	else
+		printError(len);
+	return len;
+}
+
+/*
+ * Sends command and receives responce with configured number of retrieves.
+ *
+ * Returns:
+ * 	> 0 - nuber of bytes received
+ * 	-1 - error occured
+ */
+int sendReceiveRetrieve(int ttyd, byte* commandBuff, int commandLen,
+	byte* responceBuff, int responceBuffSize)
+{
+	for (int i = 0; i < MAX_SEND_RECIEVE_ATTEMPTS; i++)
+	{
+		// Get responce
+		int len = sendReceiveOnce(ttyd, commandBuff, commandLen, responceBuff, responceBuffSize);
+		if (len)
+			return len;
+		else
+		{
+			if (debugPrint)
+				printf("One more try...\n\r");
+			usleep(TIME_BEFORE_RETRIEVE);
+		}		
+	}
+	return -1;
+}
+
+/*
+ * Check the communication channel.
+ * 
+ * Returns:
+ * 	CHECK_CHANNEL_FAILURE - channel doesnt respond as expected.
+ * 	WRONG_CRC - data recieved but CRC check failed.
+ * 	OK - means ok.
+ */
 int checkChannel(int ttyd)
 {
 	// Command initialisation
 	TestCmd testCmd = { .address = PM_ADDRESS, .command = 0x00 };
 	testCmd.CRC = ModRTU_CRC((byte*)&testCmd, sizeof(testCmd) - sizeof(UInt16));
-	printPackage((byte*)&testCmd, sizeof(testCmd), OUT);
 
-	// Send test channel command
-	write(ttyd, (byte*)&testCmd, sizeof(testCmd));
-	usleep(TIME_OUT);
-
-	// Get responce
 	byte buf[BSZ];
-	int len = nb_read_impl(ttyd, buf, BSZ);
-	usleep(TIME_OUT);
-	if (len == 0)
-		return CHECK_CHANNEL_TIME_OUT;
+	int len = sendReceiveOnce(ttyd, (byte*)&testCmd, sizeof(testCmd), buf, BSZ);
+	if (len)
+		return checkResult_1b(buf, len);
 
-	printPackage((byte*)buf, len, IN);
-
-	return checkResult_1b(buf, len);
+	return CHECK_CHANNEL_FAILURE;
 }
 
-// -- Connection initialisation
+/*
+ * Initialise connection with power meter.
+ * 
+ * Returns:
+ *	COMMUNICATION_ERROR - unable to get responce from tty.
+ * 	WRONG_CRC - data recieved but CRC check failed.
+ * 	OK - means ok.
+ */
 int initConnection(int ttyd)
 {
 	InitCmd initCmd = {
@@ -404,68 +455,34 @@ int initConnection(int ttyd)
 		.password = { 0x01, 0x01, 0x01, 0x01, 0x01, 0x01 },
 	};
 	initCmd.CRC = ModRTU_CRC((byte*)&initCmd, sizeof(initCmd) - sizeof(UInt16));
-	printPackage((byte*)&initCmd, sizeof(initCmd), OUT);
 
-	write(ttyd, (byte*)&initCmd, sizeof(initCmd));
-	usleep(TIME_OUT);
-
-	// Read initialisation result
 	byte buf[BSZ];
-	int len = nb_read(ttyd, buf, BSZ);
-	usleep(TIME_OUT);
-	printPackage((byte*)buf, len, IN);
-
-	return checkResult_1b(buf, len);
+	int len = sendReceiveOnce(ttyd, (byte*)&initCmd, sizeof(initCmd), buf, BSZ);
+	if (len)
+		return checkResult_1b(buf, len);
+	
+	return COMMUNICATION_ERROR;
 }
 
-// -- Close connection
+/*
+ * Finalise connection to power meter.
+ * 
+ * Returns:
+ *	COMMUNICATION_ERROR - unable to get responce from tty.
+ * 	WRONG_CRC - data recieved but CRC check failed.
+ * 	OK - means ok.
+ */
 int closeConnection(int ttyd)
 {
 	ByeCmd byeCmd = { .address = PM_ADDRESS, .command = 0x02 };
 	byeCmd.CRC = ModRTU_CRC((byte*)&byeCmd, sizeof(byeCmd) - sizeof(UInt16));
-	printPackage((byte*)&byeCmd, sizeof(byeCmd), OUT);
 
-	write(ttyd, (byte*)&byeCmd, sizeof(byeCmd));
-	usleep(TIME_OUT);
-
-	// Read closing responce
 	byte buf[BSZ];
-	int len = nb_read(ttyd, buf, BSZ);
-	usleep(TIME_OUT);
-	printPackage((byte*)buf, len, IN);
+	int len = sendReceiveOnce(ttyd, (byte*)&byeCmd, sizeof(byeCmd), buf, BSZ);
+	if (len)
+		return checkResult_1b(buf, len);
 
-	return checkResult_1b(buf, len);
-}
-
-// -- Sends command and receives responce with configured retrieves
-int sendReceiveRetrieve(int ttyd, byte* commandBuff, int commandLen,
-	byte* responceBuff, int responceBuffSize)
-{
-	for (int i = 0; i < MAX_SEND_RECIEVE_ATTEMPTS; i++)
-	{
-		printPackage(commandBuff, commandLen, OUT);
-
-		// Send command
-		write(ttyd, commandBuff, commandLen);
-		usleep(TIME_OUT);
-
-		// Get responce
-		int len = nb_read_impl(ttyd, responceBuff, responceBuffSize);
-		if (len)
-		{
-			printPackage(responceBuff, len, IN);
-			return len;
-		}
-		else
-		{
-			if (debugPrint)
-				printf("One more try...\n\r");
-			usleep(TIME_BEFORE_RETRIEVE);
-		}		
-	}
-	closeConnection(ttyd);
-	close(ttyd);
-	exitFailure("Command max attempts exceeded.");
+	return COMMUNICATION_ERROR;
 }
 
 // Decode float from 3 bytes
@@ -482,7 +499,14 @@ float B4F(byte b[4], float factor)
 	return val/factor;
 }
 
-// Get voltage (U) by phases
+/* 
+ * Get voltage (U) by phases.
+ *
+ * Returns:
+ *	COMMUNICATION_ERROR - unable to get responce from tty.
+ * 	WRONG_CRC - data recieved but CRC check failed.
+ * 	OK - means ok.
+ */
 int getU(int ttyd, P3V* U)
 {
 	ReadParamCmd getUCmd =
@@ -497,20 +521,32 @@ int getU(int ttyd, P3V* U)
 	byte buf[BSZ];
 	int len = sendReceiveRetrieve(ttyd, (byte*)&getUCmd, sizeof(getUCmd), buf, BSZ);
 
-	// Check and decode result
-	int checkResult = checkResult_3x3b(buf, len);
-	if (OK == checkResult)
+	if (len)
 	{
-		Result_3x3b* res = (Result_3x3b*)buf;
-		U->p1 = B3F(res->p1, 100.0);
-		U->p2 = B3F(res->p2, 100.0);
-		U->p3 = B3F(res->p3, 100.0);
+		// Check and decode result
+		int checkResult = checkResult_3x3b(buf, len);
+		if (OK == checkResult)
+		{
+			Result_3x3b* res = (Result_3x3b*)buf;
+			U->p1 = B3F(res->p1, 100.0);
+			U->p2 = B3F(res->p2, 100.0);
+			U->p3 = B3F(res->p3, 100.0);
+		}
+
+		return checkResult;
 	}
 
-	return checkResult;
+	return COMMUNICATION_ERROR;
 }
 
-// Get current (I) by phases
+/*
+ * Get current (I) by phases.
+ *
+ * Returns:
+ *	COMMUNICATION_ERROR - unable to get responce from tty.
+ * 	WRONG_CRC - data recieved but CRC check failed.
+ * 	OK - means ok.
+ */
 int getI(int ttyd, P3V* I)
 {
 	ReadParamCmd getICmd =
@@ -525,20 +561,32 @@ int getI(int ttyd, P3V* I)
 	byte buf[BSZ];
 	int len = sendReceiveRetrieve(ttyd, (byte*)&getICmd, sizeof(getICmd), buf, BSZ);
 
-	// Check and decode result
-	int checkResult = checkResult_3x3b(buf, len);
-	if (OK == checkResult)
-	{
-		Result_3x3b* res = (Result_3x3b*)buf;
-		I->p1 = B3F(res->p1, 1000.0);
-		I->p2 = B3F(res->p2, 1000.0);
-		I->p3 = B3F(res->p3, 1000.0);
+	if (len)
+	{	
+		// Check and decode result
+		int checkResult = checkResult_3x3b(buf, len);
+		if (OK == checkResult)
+		{
+			Result_3x3b* res = (Result_3x3b*)buf;
+			I->p1 = B3F(res->p1, 1000.0);
+			I->p2 = B3F(res->p2, 1000.0);
+			I->p3 = B3F(res->p3, 1000.0);
+		}
+
+		return checkResult;
 	}
 
-	return checkResult;
+	return COMMUNICATION_ERROR;
 }
 
-// Get power consumption factor cos(f) by phases
+/*
+ * Get power consumption factor cos(f) by phases.
+ * 
+ * Returns:
+ *	COMMUNICATION_ERROR - unable to get responce from tty.
+ * 	WRONG_CRC - data recieved but CRC check failed.
+ * 	OK - means ok.
+ */
 int getCosF(int ttyd, P3VS* C)
 {
 	ReadParamCmd getCosCmd =
@@ -553,21 +601,33 @@ int getCosF(int ttyd, P3VS* C)
 	byte buf[BSZ];
 	int len = sendReceiveRetrieve(ttyd, (byte*)&getCosCmd, sizeof(getCosCmd), buf, BSZ);
 
-	// Check and decode result
-	int checkResult = checkResult_4x3b(buf, len);
-	if (OK == checkResult)
+	if (len)
 	{
-		Result_4x3b* res = (Result_4x3b*)buf;
-		C->p1 = B3F(res->p1, 1000.0);
-		C->p2 = B3F(res->p2, 1000.0);
-		C->p3 = B3F(res->p3, 1000.0);
-		C->sum = B3F(res->sum, 1000.0);
+		// Check and decode result
+		int checkResult = checkResult_4x3b(buf, len);
+		if (OK == checkResult)
+		{
+			Result_4x3b* res = (Result_4x3b*)buf;
+			C->p1 = B3F(res->p1, 1000.0);
+			C->p2 = B3F(res->p2, 1000.0);
+			C->p3 = B3F(res->p3, 1000.0);
+			C->sum = B3F(res->sum, 1000.0);
+		}
+
+		return checkResult;
 	}
 
-	return checkResult;
+	return COMMUNICATION_ERROR;
 }
 
-// Get grid frequency (Hz)
+/*
+ * Get grid frequency (Hz).
+ * 
+ * Returns:
+ *	COMMUNICATION_ERROR - unable to get responce from tty.
+ * 	WRONG_CRC - data recieved but CRC check failed.
+ * 	OK - means ok.
+ */
 int getF(int ttyd, float *f)
 {
 	ReadParamCmd getFCmd =
@@ -582,18 +642,30 @@ int getF(int ttyd, float *f)
 	byte buf[BSZ];
 	int len = sendReceiveRetrieve(ttyd, (byte*)&getFCmd, sizeof(getFCmd), buf, BSZ);
 
-	// Check and decode result
-	int checkResult = checkResult_3b(buf, len);
-	if (OK == checkResult)
+	if (len)
 	{
-		Result_3b* res = (Result_3b*)buf;
-		*f = B3F(res->res, 100.0);
+		// Check and decode result
+		int checkResult = checkResult_3b(buf, len);
+		if (OK == checkResult)
+		{
+			Result_3b* res = (Result_3b*)buf;
+			*f = B3F(res->res, 100.0);
+		}
+
+		return checkResult;
 	}
 
-	return checkResult;
+	return COMMUNICATION_ERROR;
 }
 
-// Get phases angle
+/*
+ * Get phases angle.
+ * 
+ * Returns:
+ *	COMMUNICATION_ERROR - unable to get responce from tty.
+ * 	WRONG_CRC - data recieved but CRC check failed.
+ * 	OK - means ok.
+ */
 int getA(int ttyd, P3V* A)
 {
 	ReadParamCmd getACmd =
@@ -608,20 +680,32 @@ int getA(int ttyd, P3V* A)
 	byte buf[BSZ];
 	int len = sendReceiveRetrieve(ttyd, (byte*)&getACmd, sizeof(getACmd), buf, BSZ);
 
-	// Check and decode result
-	int checkResult = checkResult_3x3b(buf, len);
-	if (OK == checkResult)
+	if (len)
 	{
-		Result_3x3b* res = (Result_3x3b*)buf;
-		A->p1 = B3F(res->p1, 100.0);
-		A->p2 = B3F(res->p2, 100.0);
-		A->p3 = B3F(res->p3, 100.0);
+		// Check and decode result
+		int checkResult = checkResult_3x3b(buf, len);
+		if (OK == checkResult)
+		{
+			Result_3x3b* res = (Result_3x3b*)buf;
+			A->p1 = B3F(res->p1, 100.0);
+			A->p2 = B3F(res->p2, 100.0);
+			A->p3 = B3F(res->p3, 100.0);
+		}
+
+		return checkResult;
 	}
 
-	return checkResult;
+	return COMMUNICATION_ERROR;
 }
 
-// Get active power (W) consumption by phases with total
+/*
+ * Get active power (W) consumption by phases with total.
+ * 
+ * Returns:
+ *	COMMUNICATION_ERROR - unable to get responce from tty.
+ * 	WRONG_CRC - data recieved but CRC check failed.
+ * 	OK - means ok.
+ */
 int getP(int ttyd, P3VS* P)
 {
 	ReadParamCmd getPCmd =
@@ -636,21 +720,33 @@ int getP(int ttyd, P3VS* P)
 	byte buf[BSZ];
 	int len = sendReceiveRetrieve(ttyd, (byte*)&getPCmd, sizeof(getPCmd), buf, BSZ);
 
-	// Check and decode result
-	int checkResult = checkResult_4x3b(buf, len);
-	if (OK == checkResult)
+	if (len)
 	{
-		Result_4x3b* res = (Result_4x3b*)buf;
-		P->p1 = B3F(res->p1, 100.0);
-		P->p2 = B3F(res->p2, 100.0);
-		P->p3 = B3F(res->p3, 100.0);
-		P->sum = B3F(res->sum, 100.0);
+		// Check and decode result
+		int checkResult = checkResult_4x3b(buf, len);
+		if (OK == checkResult)
+		{
+			Result_4x3b* res = (Result_4x3b*)buf;
+			P->p1 = B3F(res->p1, 100.0);
+			P->p2 = B3F(res->p2, 100.0);
+			P->p3 = B3F(res->p3, 100.0);
+			P->sum = B3F(res->sum, 100.0);
+		}
+
+		return checkResult;
 	}
 
-	return checkResult;
+	return COMMUNICATION_ERROR;
 }
 
-// Get reactive power (VA) consumption by phases with total
+/*
+ * Get reactive power (VA) consumption by phases with total.
+ * 
+ * Returns:
+ *	COMMUNICATION_ERROR - unable to get responce from tty.
+ * 	WRONG_CRC - data recieved but CRC check failed.
+ * 	OK - means ok.
+ */
 int getS(int ttyd, P3VS* S)
 {
 	ReadParamCmd getSCmd =
@@ -665,24 +761,38 @@ int getS(int ttyd, P3VS* S)
 	byte buf[BSZ];
 	int len = sendReceiveRetrieve(ttyd, (byte*)&getSCmd, sizeof(getSCmd), buf, BSZ);
 
-	// Check and decode result
-	int checkResult = checkResult_4x3b(buf, len);
-	if (OK == checkResult)
+	if (len)
 	{
-		Result_4x3b* res = (Result_4x3b*)buf;
-		S->p1 = B3F(res->p1, 100.0);
-		S->p2 = B3F(res->p2, 100.0);
-		S->p3 = B3F(res->p3, 100.0);
-		S->sum = B3F(res->sum, 100.0);
+		// Check and decode result
+		int checkResult = checkResult_4x3b(buf, len);
+		if (OK == checkResult)
+		{
+			Result_4x3b* res = (Result_4x3b*)buf;
+			S->p1 = B3F(res->p1, 100.0);
+			S->p2 = B3F(res->p2, 100.0);
+			S->p3 = B3F(res->p3, 100.0);
+			S->sum = B3F(res->sum, 100.0);
+		}
+
+		return checkResult;
 	}
 
-	return checkResult;
+	return COMMUNICATION_ERROR;
 }
 
-/* Get power counters by phases for the period
-	periodId - one of PowerPeriod enum values
-	month - month number when periodId is PP_MONTH
-	tariffNo - 0 for all tariffs, 1 - tariff #1, 2 - tariff #2 etc. */
+/*
+ * Get power counters by phases for the period.
+ * 
+ * Parameters:
+ * 	periodId - one of PowerPeriod enum values
+ *	month - month number when periodId is PP_MONTH
+ *	tariffNo - 0 for all tariffs, 1 - tariff #1, 2 - tariff #2 etc.
+ * 
+ * Returns:
+ *	COMMUNICATION_ERROR - unable to get responce from tty.
+ * 	WRONG_CRC - data recieved but CRC check failed.
+ * 	OK - means ok.
+ */
 int getW(int ttyd, PWV* W, int periodId, int month, int tariffNo)
 {
 	ReadParamCmd getWCmd =
@@ -697,18 +807,23 @@ int getW(int ttyd, PWV* W, int periodId, int month, int tariffNo)
 	byte buf[BSZ];
 	int len = sendReceiveRetrieve(ttyd, (byte*)&getWCmd, sizeof(getWCmd), buf, BSZ);
 
-	// Check and decode result
-	int checkResult = checkResult_4x4b(buf, len);
-	if (OK == checkResult)
+	if (len)
 	{
-		Result_4x4b* res = (Result_4x4b*)buf;
-		W->ap = B4F(res->ap, 1000.0);
-		W->am = B4F(res->am, 1000.0);
-		W->rp = B4F(res->rp, 1000.0);
-		W->rm = B4F(res->rm, 1000.0);
+		// Check and decode result
+		int checkResult = checkResult_4x4b(buf, len);
+		if (OK == checkResult)
+		{
+			Result_4x4b* res = (Result_4x4b*)buf;
+			W->ap = B4F(res->ap, 1000.0);
+			W->am = B4F(res->am, 1000.0);
+			W->rp = B4F(res->rp, 1000.0);
+			W->rm = B4F(res->rm, 1000.0);
+		}
+
+		return checkResult;
 	}
 
-	return checkResult;
+	return COMMUNICATION_ERROR;
 }
 
 // -- Command line usage help
@@ -790,8 +905,8 @@ void printOutput(int format, OutputBlock o, int header)
 			break;
 
 		default:
-			exitFailure("Invalid formatting.");
-			break;
+			printf("Invalid formatting.\n\r");
+			exit(EXIT_FAIL);
 	}
 }
 
@@ -852,7 +967,7 @@ int main(int argc, const char** args)
 		if (fd < 0)
 		{
 			printf("Cannot open %s terminal channel.\n\r", dev);
-			exitFailure("Communication failed.");
+			exit(EXIT_FAIL);
 		}
 
 		fcntl(fd, F_SETFL, 0);
@@ -863,7 +978,6 @@ int main(int argc, const char** args)
 		cfsetispeed(&serialPortSettings, BAUDRATE);
 		cfsetospeed(&serialPortSettings, BAUDRATE);
 
-		// variant 22.03.20
 		serialPortSettings.c_cflag &= PARENB;				/* Disables the Parity Enable bit(PARENB),So No Parity   */
 		serialPortSettings.c_cflag &= ~CSTOPB;				/* CSTOPB = 2 Stop bits,here it is cleared so 1 Stop bit */
 		serialPortSettings.c_cflag &= ~CSIZE;				/* Clears the mask for setting the data size             */
@@ -875,15 +989,6 @@ int main(int argc, const char** args)
 		serialPortSettings.c_iflag &= ~(ICANON | ECHO | ECHOE | ISIG);	/* Non Cannonical mode                            */
 
 		serialPortSettings.c_oflag &= ~OPOST;				/*No Output Processing*/
-		// end variant 22.03.20
-
-	// 	serialPortSettings.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-	// //	serialPortSettings.c_cflag = BAUDRATE | CRTSCTS | CS8 | CLOCAL | CREAD;
-	// //	serialPortSettings.c_cflag = BAUDRATE | CS8 | CREAD;
-	// 	serialPortSettings.c_iflag = IGNPAR;
-	// 	serialPortSettings.c_oflag = 0;
-
-	// 	cfmakeraw(&serialPortSettings);
 
 		tcflush(fd, TCIOFLUSH);
 		tcsetattr(fd, TCSANOW, &serialPortSettings);
@@ -895,7 +1000,8 @@ int main(int argc, const char** args)
 				{
 					closeConnection(fd);
 					close(fd);
-					exitFailure("Power meter connection initialisation error.");
+					printf("Power meter connection initialisation error.\n\r");
+					exit(EXIT_FAIL);
 				}
 
 				// Get voltage by phases
@@ -903,7 +1009,8 @@ int main(int argc, const char** args)
 				{
 					closeConnection(fd);
 					close(fd);
-					exitFailure("Cannot collect voltage data.");
+					printf("Cannot collect voltage data.\n\r");
+					exit(EXIT_FAIL);
 				}
 
 				// Get current by phases
@@ -911,7 +1018,8 @@ int main(int argc, const char** args)
 				{
 					closeConnection(fd);
 					close(fd);
-					exitFailure("Cannot collect current data.");
+					printf("Cannot collect current data.\n\r");
+					exit(EXIT_FAIL);
 				}
 
 				// Get power cos(f) by phases
@@ -919,7 +1027,8 @@ int main(int argc, const char** args)
 				{
 					closeConnection(fd);
 					close(fd);
-					exitFailure("Cannot collect cos(f) data.");
+					printf("Cannot collect cos(f) data.\n\r");
+					exit(EXIT_FAIL);
 				}
 
 				// Get grid frequency
@@ -927,8 +1036,8 @@ int main(int argc, const char** args)
 				{
 					closeConnection(fd);
 					close(fd);
-					exitFailure("Cannot collect grid frequency data.");
-				
+					printf("Cannot collect grid frequency data.\n\r");
+					exit(EXIT_FAIL);				
 				}
 
 				// Get phase angles
@@ -936,8 +1045,8 @@ int main(int argc, const char** args)
 				{
 					closeConnection(fd);
 					close(fd);
-					exitFailure("Cannot collect phase angles data.");
-				
+					printf("Cannot collect phase angles data.\n\r");
+					exit(EXIT_FAIL);				
 				}
 
 				// Get active power consumption by phases
@@ -945,7 +1054,8 @@ int main(int argc, const char** args)
 				{
 					closeConnection(fd);
 					close(fd);
-					exitFailure("Cannot collect active power consumption data.");
+					printf("Cannot collect active power consumption data.\n\r");
+					exit(EXIT_FAIL);
 				}
 
 				// Get reactive power consumption by phases
@@ -953,7 +1063,8 @@ int main(int argc, const char** args)
 				{
 					closeConnection(fd);
 					close(fd);
-					exitFailure("Cannot collect reactive power consumption data.");
+					printf("Cannot collect reactive power consumption data.\n\r");
+					exit(EXIT_FAIL);
 				}
 
 				// Get power counter from reset, for yesterday and today
@@ -965,28 +1076,31 @@ int main(int argc, const char** args)
 				{
 					closeConnection(fd);
 					close(fd);
-					exitFailure("Cannot collect power counters data.");
+					printf("Cannot collect power counters data.\n\r");
+					exit(EXIT_FAIL);
 				}
 
 				if (OK != closeConnection(fd))
 				{
 					close(fd);
-					exitFailure("Power meter connection closing error."); 
+					printf("Power meter connection closing error.\n\r"); 
+					exit(EXIT_FAIL);
 				}
 
 				break;
 
-			case CHECK_CHANNEL_TIME_OUT:
+			case CHECK_CHANNEL_FAILURE:
 				close(fd);
-				exitFailure("Power meter channel time out.");
+				printf("Power meter channel time out.\n\r");
+				exit(EXIT_FAIL);
 
 			default:
 				close(fd);
-				exitFailure("Power meter communication channel test failed.");
+				printf("Power meter communication channel test failed.\n\r");
+				exit(EXIT_FAIL);
 		}
 
 		close(fd);
-		//tcsetattr(fd, TCSANOW, &oldtio);
 	}
 
 	// print the results
