@@ -17,24 +17,24 @@
 #include <time.h>
 
 #pragma pack(1)
-#define BAUDRATE 			B57600
-#define _POSIX_SOURCE 			1		// POSIX compliant source
-#define UInt16				uint16_t
-#define byte				unsigned char
-#define TIME_OUT			2 * 1000	// Mercury inter-command delay (ms)
-#define CH_TIME_OUT			5		// Channel timeout (sec)
-#define BSZ				255
-#define PM_ADDRESS			0		// RS485 addess of the power meter
-#define TARRIF_NUM			2		// 2 tariffs supported
-#define OPT_DEBUG			"--debug"
-#define OPT_HELP			"--help"
-#define OPT_TEST_RUN			"--testRun"
-#define OPT_HUMAN			"--human"
-#define OPT_CSV				"--csv"
-#define OPT_JSON			"--json"
-#define OPT_HEADER			"--header"
-#define MAX_SEND_RECIEVE_ATTEMPTS	3
-#define TIME_BEFORE_RETRIEVE		1 * 1000 * 1000	// Wait 1 sec before retrieve command
+#define BAUDRATE 		B57600
+#define _POSIX_SOURCE 		1		// POSIX compliant source
+#define UInt16			uint16_t
+#define byte			unsigned char
+#define TIME_OUT		2 * 1000	// Mercury inter-command delay (ms)
+#define CH_TIME_OUT		5		// Channel timeout (sec)
+#define BSZ			255
+#define PM_ADDRESS		0		// RS485 addess of the power meter
+#define TARRIF_NUM		2		// 2 tariffs supported
+#define OPT_DEBUG		"--debug"
+#define OPT_HELP		"--help"
+#define OPT_TEST_RUN		"--testRun"
+#define OPT_HUMAN		"--human"
+#define OPT_CSV			"--csv"
+#define OPT_JSON		"--json"
+#define OPT_HEADER		"--header"
+#define MAX_ATTEMPTS		3
+#define TIME_BEFORE_RETRIEVE	1 * 1000 * 1000	// Wait 1 sec before retrieve command
 
 int debugPrint = 0;
 
@@ -364,7 +364,7 @@ int checkResult_4x4b(byte* buf, int len)
  * 	> 0 - nuber of bytes received
  * 	<= 0 - error occured
  */
-int sendReceiveOnce(int ttyd, byte* commandBuff, int commandLen,
+int sendReceive(int ttyd, byte* commandBuff, int commandLen,
 	byte* responceBuff, int responceBuffSize)
 {
 	printPackage(commandBuff, commandLen, OUT);
@@ -382,31 +382,31 @@ int sendReceiveOnce(int ttyd, byte* commandBuff, int commandLen,
 	return len;
 }
 
-/*
- * Sends command and receives responce with configured number of retrieves.
- *
- * Returns:
- * 	> 0 - nuber of bytes received
- * 	-1 - error occured
- */
-int sendReceiveRetrieve(int ttyd, byte* commandBuff, int commandLen,
-	byte* responceBuff, int responceBuffSize)
-{
-	for (int i = 0; i < MAX_SEND_RECIEVE_ATTEMPTS; i++)
-	{
-		// Get responce
-		int len = sendReceiveOnce(ttyd, commandBuff, commandLen, responceBuff, responceBuffSize);
-		if (len)
-			return len;
-		else
-		{
-			if (debugPrint)
-				printf("One more try...\n\r");
-			usleep(TIME_BEFORE_RETRIEVE);
-		}		
-	}
-	return -1;
-}
+// /*
+//  * Sends command and receives responce with configured number of retrieves.
+//  *
+//  * Returns:
+//  * 	> 0 - nuber of bytes received
+//  * 	-1 - error occured
+//  */
+// int sendReceiveRetrieve(int ttyd, byte* commandBuff, int commandLen,
+// 	byte* responceBuff, int responceBuffSize)
+// {
+// 	for (int i = 0; i < MAX_SEND_RECIEVE_ATTEMPTS; i++)
+// 	{
+// 		// Get responce
+// 		int len = sendReceiveOnce(ttyd, commandBuff, commandLen, responceBuff, responceBuffSize);
+// 		if (len)
+// 			return len;
+// 		else
+// 		{
+// 			if (debugPrint)
+// 				printf("One more try...\n\r");
+// 			usleep(TIME_BEFORE_RETRIEVE);
+// 		}		
+// 	}
+// 	return -1;
+// }
 
 /*
  * Check the communication channel.
@@ -423,7 +423,7 @@ int checkChannel(int ttyd)
 	testCmd.CRC = ModRTU_CRC((byte*)&testCmd, sizeof(testCmd) - sizeof(UInt16));
 
 	byte buf[BSZ];
-	int len = sendReceiveOnce(ttyd, (byte*)&testCmd, sizeof(testCmd), buf, BSZ);
+	int len = sendReceive(ttyd, (byte*)&testCmd, sizeof(testCmd), buf, BSZ);
 	if (len)
 		return checkResult_1b(buf, len);
 
@@ -449,7 +449,7 @@ int initConnection(int ttyd)
 	initCmd.CRC = ModRTU_CRC((byte*)&initCmd, sizeof(initCmd) - sizeof(UInt16));
 
 	byte buf[BSZ];
-	int len = sendReceiveOnce(ttyd, (byte*)&initCmd, sizeof(initCmd), buf, BSZ);
+	int len = sendReceive(ttyd, (byte*)&initCmd, sizeof(initCmd), buf, BSZ);
 	if (len)
 		return checkResult_1b(buf, len);
 	
@@ -470,7 +470,7 @@ int closeConnection(int ttyd)
 	byeCmd.CRC = ModRTU_CRC((byte*)&byeCmd, sizeof(byeCmd) - sizeof(UInt16));
 
 	byte buf[BSZ];
-	int len = sendReceiveOnce(ttyd, (byte*)&byeCmd, sizeof(byeCmd), buf, BSZ);
+	int len = sendReceive(ttyd, (byte*)&byeCmd, sizeof(byeCmd), buf, BSZ);
 	if (len)
 		return checkResult_1b(buf, len);
 
@@ -511,7 +511,7 @@ int getU(int ttyd, P3V* U)
 	getUCmd.CRC = ModRTU_CRC((byte*)&getUCmd, sizeof(getUCmd) - sizeof(UInt16));
 
 	byte buf[BSZ];
-	int len = sendReceiveRetrieve(ttyd, (byte*)&getUCmd, sizeof(getUCmd), buf, BSZ);
+	int len = sendReceive(ttyd, (byte*)&getUCmd, sizeof(getUCmd), buf, BSZ);
 
 	if (len)
 	{
@@ -551,7 +551,7 @@ int getI(int ttyd, P3V* I)
 	getICmd.CRC = ModRTU_CRC((byte*)&getICmd, sizeof(getICmd) - sizeof(UInt16));
 
 	byte buf[BSZ];
-	int len = sendReceiveRetrieve(ttyd, (byte*)&getICmd, sizeof(getICmd), buf, BSZ);
+	int len = sendReceive(ttyd, (byte*)&getICmd, sizeof(getICmd), buf, BSZ);
 
 	if (len)
 	{	
@@ -591,7 +591,7 @@ int getCosF(int ttyd, P3VS* C)
 	getCosCmd.CRC = ModRTU_CRC((byte*)&getCosCmd, sizeof(getCosCmd) - sizeof(UInt16));
 
 	byte buf[BSZ];
-	int len = sendReceiveRetrieve(ttyd, (byte*)&getCosCmd, sizeof(getCosCmd), buf, BSZ);
+	int len = sendReceive(ttyd, (byte*)&getCosCmd, sizeof(getCosCmd), buf, BSZ);
 
 	if (len)
 	{
@@ -632,7 +632,7 @@ int getF(int ttyd, float *f)
 	getFCmd.CRC = ModRTU_CRC((byte*)&getFCmd, sizeof(getFCmd) - sizeof(UInt16));
 
 	byte buf[BSZ];
-	int len = sendReceiveRetrieve(ttyd, (byte*)&getFCmd, sizeof(getFCmd), buf, BSZ);
+	int len = sendReceive(ttyd, (byte*)&getFCmd, sizeof(getFCmd), buf, BSZ);
 
 	if (len)
 	{
@@ -670,7 +670,7 @@ int getA(int ttyd, P3V* A)
 	getACmd.CRC = ModRTU_CRC((byte*)&getACmd, sizeof(getACmd) - sizeof(UInt16));
 
 	byte buf[BSZ];
-	int len = sendReceiveRetrieve(ttyd, (byte*)&getACmd, sizeof(getACmd), buf, BSZ);
+	int len = sendReceive(ttyd, (byte*)&getACmd, sizeof(getACmd), buf, BSZ);
 
 	if (len)
 	{
@@ -710,7 +710,7 @@ int getP(int ttyd, P3VS* P)
 	getPCmd.CRC = ModRTU_CRC((byte*)&getPCmd, sizeof(getPCmd) - sizeof(UInt16));
 
 	byte buf[BSZ];
-	int len = sendReceiveRetrieve(ttyd, (byte*)&getPCmd, sizeof(getPCmd), buf, BSZ);
+	int len = sendReceive(ttyd, (byte*)&getPCmd, sizeof(getPCmd), buf, BSZ);
 
 	if (len)
 	{
@@ -751,7 +751,7 @@ int getS(int ttyd, P3VS* S)
 	getSCmd.CRC = ModRTU_CRC((byte*)&getSCmd, sizeof(getSCmd) - sizeof(UInt16));
 
 	byte buf[BSZ];
-	int len = sendReceiveRetrieve(ttyd, (byte*)&getSCmd, sizeof(getSCmd), buf, BSZ);
+	int len = sendReceive(ttyd, (byte*)&getSCmd, sizeof(getSCmd), buf, BSZ);
 
 	if (len)
 	{
@@ -797,7 +797,7 @@ int getW(int ttyd, PWV* W, int periodId, int month, int tariffNo)
 	getWCmd.CRC = ModRTU_CRC((byte*)&getWCmd, sizeof(getWCmd) - sizeof(UInt16));
 
 	byte buf[BSZ];
-	int len = sendReceiveRetrieve(ttyd, (byte*)&getWCmd, sizeof(getWCmd), buf, BSZ);
+	int len = sendReceive(ttyd, (byte*)&getWCmd, sizeof(getWCmd), buf, BSZ);
 
 	if (len)
 	{
@@ -980,119 +980,63 @@ int main(int argc, const char** args)
 		serialPortSettings.c_iflag &= ~(IXON | IXOFF | IXANY);		/* Disable XON/XOFF flow control both i/p and o/p */
 		serialPortSettings.c_iflag &= ~(ICANON | ECHO | ECHOE | ISIG);	/* Non Cannonical mode                            */
 
-		serialPortSettings.c_oflag &= ~OPOST;				/*No Output Processing*/
+		serialPortSettings.c_oflag &= ~OPOST;				/* No Output Processing */
 
 		tcflush(fd, TCIOFLUSH);
 		tcsetattr(fd, TCSANOW, &serialPortSettings);
 
-		switch(checkChannel(fd))
-		{
-			case OK:
-				if (OK != initConnection(fd))
-				{
+		// -- 3 attempts
+		for (int c = 0; c < MAX_ATTEMPTS; c++)
+		{	
+			switch(checkChannel(fd))
+			{
+				case OK:
+					if (OK != initConnection(fd)) continue;
+
+					// Get voltage by phases
+					if (OK != getU(fd, &o.U)) continue;
+
+					// Get current by phases
+					if (OK != getI(fd, &o.I)) continue;
+
+					// Get power cos(f) by phases
+					if (OK != getCosF(fd, &o.C)) continue;
+
+					// Get grid frequency
+					if (OK != getF(fd, &o.f)) continue;
+
+					// Get phase angles
+					if (OK != getA(fd, &o.A)) continue;
+
+					// Get active power consumption by phases
+					if (OK != getP(fd, &o.P)) continue;
+
+					// Get reactive power consumption by phases
+					if (OK != getS(fd, &o.S)) continue;
+
+					// Get power counter from reset, for yesterday and today
+					if (
+						OK != getW(fd, &o.PR, PP_RESET, 0, 0) ||	// total from reset
+						OK != getW(fd, &o.PRT[0], PP_RESET, 0, 0+1) ||	// day tariff from reset
+						OK != getW(fd, &o.PRT[1], PP_RESET, 0, 1+1) ||	// night tariff from reset
+						OK != getW(fd, &o.PY, PP_YESTERDAY, 0, 0) ||
+						OK != getW(fd, &o.PT, PP_TODAY, 0, 0)) continue;
+
 					closeConnection(fd);
 					close(fd);
-					printf("Power meter connection initialisation error.\n\r");
+					break;
+
+				case CHECK_CHANNEL_FAILURE:
+					close(fd);
+					printf("Power meter channel time out.\n\r");
 					exit(EXIT_FAIL);
-				}
 
-				// Get voltage by phases
-				if (OK != getU(fd, &o.U))
-				{
-					closeConnection(fd);
+				default:
 					close(fd);
-					printf("Cannot collect voltage data.\n\r");
+					printf("Power meter communication channel test failed.\n\r");
 					exit(EXIT_FAIL);
-				}
-
-				// Get current by phases
-				if (OK != getI(fd, &o.I))
-				{
-					closeConnection(fd);
-					close(fd);
-					printf("Cannot collect current data.\n\r");
-					exit(EXIT_FAIL);
-				}
-
-				// Get power cos(f) by phases
-				if (OK != getCosF(fd, &o.C))
-				{
-					closeConnection(fd);
-					close(fd);
-					printf("Cannot collect cos(f) data.\n\r");
-					exit(EXIT_FAIL);
-				}
-
-				// Get grid frequency
-				if (OK != getF(fd, &o.f))
-				{
-					closeConnection(fd);
-					close(fd);
-					printf("Cannot collect grid frequency data.\n\r");
-					exit(EXIT_FAIL);				
-				}
-
-				// Get phase angles
-				if (OK != getA(fd, &o.A))
-				{
-					closeConnection(fd);
-					close(fd);
-					printf("Cannot collect phase angles data.\n\r");
-					exit(EXIT_FAIL);				
-				}
-
-				// Get active power consumption by phases
-				if (OK != getP(fd, &o.P))
-				{
-					closeConnection(fd);
-					close(fd);
-					printf("Cannot collect active power consumption data.\n\r");
-					exit(EXIT_FAIL);
-				}
-
-				// Get reactive power consumption by phases
-				if (OK != getS(fd, &o.S))
-				{
-					closeConnection(fd);
-					close(fd);
-					printf("Cannot collect reactive power consumption data.\n\r");
-					exit(EXIT_FAIL);
-				}
-
-				// Get power counter from reset, for yesterday and today
-				if (OK != getW(fd, &o.PR, PP_RESET, 0, 0) ||		// total from reset
-    				    OK != getW(fd, &o.PRT[0], PP_RESET, 0, 0+1) ||	// day tariff from reset
-	    			    OK != getW(fd, &o.PRT[1], PP_RESET, 0, 1+1) ||	// night tariff from reset
-				    OK != getW(fd, &o.PY, PP_YESTERDAY, 0, 0) ||
-				    OK != getW(fd, &o.PT, PP_TODAY, 0, 0))
-				{
-					closeConnection(fd);
-					close(fd);
-					printf("Cannot collect power counters data.\n\r");
-					exit(EXIT_FAIL);
-				}
-
-				if (OK != closeConnection(fd))
-				{
-					close(fd);
-					printf("Power meter connection closing error.\n\r"); 
-					exit(EXIT_FAIL);
-				}
-
-				break;
-
-			case CHECK_CHANNEL_FAILURE:
-				close(fd);
-				printf("Power meter channel time out.\n\r");
-				exit(EXIT_FAIL);
-
-			default:
-				close(fd);
-				printf("Power meter communication channel test failed.\n\r");
-				exit(EXIT_FAIL);
+			}
 		}
-
-		close(fd);
 	}
 
 	// print the results
