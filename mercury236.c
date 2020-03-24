@@ -986,6 +986,7 @@ int main(int argc, const char** args)
 		tcsetattr(fd, TCSANOW, &serialPortSettings);
 
 		// -- 3 attempts
+		int success = 0;
 		for (int c = 0; c < MAX_ATTEMPTS; c++)
 		{	
 			switch(checkChannel(fd))
@@ -1022,6 +1023,7 @@ int main(int argc, const char** args)
 						OK != getW(fd, &o.PY, PP_YESTERDAY, 0, 0) ||
 						OK != getW(fd, &o.PT, PP_TODAY, 0, 0)) continue;
 
+					success = 1;
 					closeConnection(fd);
 					close(fd);
 					break;
@@ -1036,6 +1038,7 @@ int main(int argc, const char** args)
 					printf("Power meter communication channel test failed.\n\r");
 					exit(EXIT_FAIL);
 			}
+			if (success) break;
 		}
 	}
 
