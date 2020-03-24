@@ -458,8 +458,9 @@ int sendReceiveRetrieve(int ttyd, byte* commandBuff, int commandLen,
 		}
 		else
 		{
+			if (debug)
+				printf("One more try...\n\r");
 			usleep(TIME_BEFORE_RETRIEVE);
-			continue;
 		}		
 	}
 	closeConnection(ttyd);
