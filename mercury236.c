@@ -17,7 +17,7 @@
 #include <time.h>
 
 #pragma pack(1)
-#define BAUDRATE 			B9600
+#define BAUDRATE 			B57600
 #define _POSIX_SOURCE 			1		// POSIX compliant source
 #define UInt16				uint16_t
 #define byte				unsigned char
@@ -34,7 +34,7 @@
 #define OPT_JSON			"--json"
 #define OPT_HEADER			"--header"
 #define MAX_SEND_RECIEVE_ATTEMPTS	3
-#define TIME_BEFORE_RETRIEVE		5 * 1000 * 1000	// Wait 5 sec before retrieve command
+#define TIME_BEFORE_RETRIEVE		1 * 1000 * 1000	// Wait 1 sec before retrieve command
 
 int debugPrint = 0;
 
@@ -240,14 +240,6 @@ UInt16 ModRTU_CRC(byte* buf, int len)
   // Note, this number has low and high bytes swapped, so use it accordingly (or swap bytes)
   return crc;
 }
-
-
-// // -- Abnormal termination
-// void exitFailure(const char* msg)
-// {
-// 	perror(msg);
-// 	exit(EXIT_FAIL);
-// }
 
 // -- Print out data buffer in hex
 void printPackage(byte *data, int size, int isin)
