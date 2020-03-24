@@ -458,7 +458,7 @@ int sendReceiveRetrieve(int ttyd, byte* commandBuff, int commandLen,
 		}
 		else
 		{
-			if (debug)
+			if (debugPrint)
 				printf("One more try...\n\r");
 			usleep(TIME_BEFORE_RETRIEVE);
 		}		
