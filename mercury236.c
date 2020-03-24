@@ -33,7 +33,6 @@
 #define OPT_CSV			"--csv"
 #define OPT_JSON		"--json"
 #define OPT_HEADER		"--header"
-#define MAX_ATTEMPTS		3
 #define TIME_BEFORE_RETRIEVE	1 * 1000 * 1000	// Wait 1 sec before retrieve command
 
 int debugPrint = 0;
@@ -985,60 +984,54 @@ int main(int argc, const char** args)
 		tcflush(fd, TCIOFLUSH);
 		tcsetattr(fd, TCSANOW, &serialPortSettings);
 
-		// -- 3 attempts
-		int success = 0;
-		for (int c = 0; c < MAX_ATTEMPTS; c++)
-		{	
-			switch(checkChannel(fd))
-			{
-				case OK:
-					if (OK != initConnection(fd)) continue;
+		switch(checkChannel(fd))
+		{
+			case OK:
+				if (OK != initConnection(fd)) goto stop_conversation;
 
-					// Get voltage by phases
-					if (OK != getU(fd, &o.U)) continue;
+				// Get voltage by phases
+				if (OK != getU(fd, &o.U)) goto stop_conversation;
 
-					// Get current by phases
-					if (OK != getI(fd, &o.I)) continue;
+				// Get current by phases
+				if (OK != getI(fd, &o.I)) goto stop_conversation;
 
-					// Get power cos(f) by phases
-					if (OK != getCosF(fd, &o.C)) continue;
+				// Get power cos(f) by phases
+				if (OK != getCosF(fd, &o.C)) goto stop_conversation;
 
-					// Get grid frequency
-					if (OK != getF(fd, &o.f)) continue;
+				// Get grid frequency
+				if (OK != getF(fd, &o.f)) goto stop_conversation;
 
-					// Get phase angles
-					if (OK != getA(fd, &o.A)) continue;
+				// Get phase angles
+				if (OK != getA(fd, &o.A)) goto stop_conversation;
 
-					// Get active power consumption by phases
-					if (OK != getP(fd, &o.P)) continue;
+				// Get active power consumption by phases
+				if (OK != getP(fd, &o.P)) goto stop_conversation;
 
-					// Get reactive power consumption by phases
-					if (OK != getS(fd, &o.S)) continue;
+				// Get reactive power consumption by phases
+				if (OK != getS(fd, &o.S)) goto stop_conversation;
 
-					// Get power counter from reset, for yesterday and today
-					if (
-						OK != getW(fd, &o.PR, PP_RESET, 0, 0) ||	// total from reset
-						OK != getW(fd, &o.PRT[0], PP_RESET, 0, 0+1) ||	// day tariff from reset
-						OK != getW(fd, &o.PRT[1], PP_RESET, 0, 1+1) ||	// night tariff from reset
-						OK != getW(fd, &o.PY, PP_YESTERDAY, 0, 0) ||
-						OK != getW(fd, &o.PT, PP_TODAY, 0, 0)) continue;
+				// Get power counter from reset, for yesterday and today
+				if (
+					OK != getW(fd, &o.PR, PP_RESET, 0, 0) ||	// total from reset
+					OK != getW(fd, &o.PRT[0], PP_RESET, 0, 0+1) ||	// day tariff from reset
+					OK != getW(fd, &o.PRT[1], PP_RESET, 0, 1+1) ||	// night tariff from reset
+					OK != getW(fd, &o.PY, PP_YESTERDAY, 0, 0) ||
+					OK != getW(fd, &o.PT, PP_TODAY, 0, 0)) goto stop_conversation;
 
-					success = 1;
-					closeConnection(fd);
-					close(fd);
-					break;
+			stop_conversation:
+				closeConnection(fd);
+				close(fd);
+				break;
 
-				case CHECK_CHANNEL_FAILURE:
-					close(fd);
-					printf("Power meter channel time out.\n\r");
-					exit(EXIT_FAIL);
+			case CHECK_CHANNEL_FAILURE:
+				close(fd);
+				printf("Power meter channel time out.\n\r");
+				exit(EXIT_FAIL);
 
-				default:
-					close(fd);
-					printf("Power meter communication channel test failed.\n\r");
-					exit(EXIT_FAIL);
-			}
-			if (success) break;
+			default:
+				close(fd);
+				printf("Power meter communication channel test failed.\n\r");
+				exit(EXIT_FAIL);
 		}
 	}
 
