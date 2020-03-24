@@ -520,16 +520,9 @@ int getI(int ttyd, P3V* I)
 		.BWRI = 0x21
 	};
 	getICmd.CRC = ModRTU_CRC((byte*)&getICmd, sizeof(getICmd) - sizeof(UInt16));
-	printPackage((byte*)&getICmd, sizeof(getICmd), OUT);
 
-	write(ttyd, (byte*)&getICmd, sizeof(getICmd));
-	usleep(TIME_OUT);
-
-	// Read responce
 	byte buf[BSZ];
-	int len = nb_read(ttyd, buf, BSZ);
-	usleep(TIME_OUT);
-	printPackage((byte*)buf, len, IN);
+	int len = sendReceiveRetrieve(ttyd, (byte*)&getICmd, sizeof(getICmd), buf, BSZ);
 
 	// Check and decode result
 	int checkResult = checkResult_3x3b(buf, len);
@@ -555,16 +548,9 @@ int getCosF(int ttyd, P3VS* C)
 		.BWRI = 0x30
 	};
 	getCosCmd.CRC = ModRTU_CRC((byte*)&getCosCmd, sizeof(getCosCmd) - sizeof(UInt16));
-	printPackage((byte*)&getCosCmd, sizeof(getCosCmd), OUT);
 
-	write(ttyd, (byte*)&getCosCmd, sizeof(getCosCmd));
-	usleep(TIME_OUT);
-
-	// Read responce
 	byte buf[BSZ];
-	int len = nb_read(ttyd, buf, BSZ);
-	usleep(TIME_OUT);
-	printPackage((byte*)buf, len, IN);
+	int len = sendReceiveRetrieve(ttyd, (byte*)&getCosCmd, sizeof(getCosCmd), buf, BSZ);
 
 	// Check and decode result
 	int checkResult = checkResult_4x3b(buf, len);
@@ -591,16 +577,9 @@ int getF(int ttyd, float *f)
 		.BWRI = 0x40
 	};
 	getFCmd.CRC = ModRTU_CRC((byte*)&getFCmd, sizeof(getFCmd) - sizeof(UInt16));
-	printPackage((byte*)&getFCmd, sizeof(getFCmd), OUT);
 
-	write(ttyd, (byte*)&getFCmd, sizeof(getFCmd));
-	usleep(TIME_OUT);
-
-	// Read responce
 	byte buf[BSZ];
-	int len = nb_read(ttyd, buf, BSZ);
-	usleep(TIME_OUT);
-	printPackage((byte*)buf, len, IN);
+	int len = sendReceiveRetrieve(ttyd, (byte*)&getFCmd, sizeof(getFCmd), buf, BSZ);
 
 	// Check and decode result
 	int checkResult = checkResult_3b(buf, len);
@@ -624,16 +603,9 @@ int getA(int ttyd, P3V* A)
 		.BWRI = 0x51
 	};
 	getACmd.CRC = ModRTU_CRC((byte*)&getACmd, sizeof(getACmd) - sizeof(UInt16));
-	printPackage((byte*)&getACmd, sizeof(getACmd), OUT);
 
-	write(ttyd, (byte*)&getACmd, sizeof(getACmd));
-	usleep(TIME_OUT);
-
-	// Read responce
 	byte buf[BSZ];
-	int len = nb_read(ttyd, buf, BSZ);
-	usleep(TIME_OUT);
-	printPackage((byte*)buf, len, IN);
+	int len = sendReceiveRetrieve(ttyd, (byte*)&getACmd, sizeof(getACmd), buf, BSZ);
 
 	// Check and decode result
 	int checkResult = checkResult_3x3b(buf, len);
@@ -659,16 +631,9 @@ int getP(int ttyd, P3VS* P)
 		.BWRI = 0x00
 	};
 	getPCmd.CRC = ModRTU_CRC((byte*)&getPCmd, sizeof(getPCmd) - sizeof(UInt16));
-	printPackage((byte*)&getPCmd, sizeof(getPCmd), OUT);
 
-	write(ttyd, (byte*)&getPCmd, sizeof(getPCmd));
-	usleep(TIME_OUT);
-
-	// Read responce
 	byte buf[BSZ];
-	int len = nb_read(ttyd, buf, BSZ);
-	usleep(TIME_OUT);
-	printPackage((byte*)buf, len, IN);
+	int len = sendReceiveRetrieve(ttyd, (byte*)&getPCmd, sizeof(getPCmd), buf, BSZ);
 
 	// Check and decode result
 	int checkResult = checkResult_4x3b(buf, len);
@@ -695,16 +660,9 @@ int getS(int ttyd, P3VS* S)
 		.BWRI = 0x08
 	};
 	getSCmd.CRC = ModRTU_CRC((byte*)&getSCmd, sizeof(getSCmd) - sizeof(UInt16));
-	printPackage((byte*)&getSCmd, sizeof(getSCmd), OUT);
 
-	write(ttyd, (byte*)&getSCmd, sizeof(getSCmd));
-	usleep(TIME_OUT);
-
-	// Read responce
 	byte buf[BSZ];
-	int len = nb_read(ttyd, buf, BSZ);
-	usleep(TIME_OUT);
-	printPackage((byte*)buf, len, IN);
+	int len = sendReceiveRetrieve(ttyd, (byte*)&getSCmd, sizeof(getSCmd), buf, BSZ);
 
 	// Check and decode result
 	int checkResult = checkResult_4x3b(buf, len);
@@ -734,16 +692,9 @@ int getW(int ttyd, PWV* W, int periodId, int month, int tariffNo)
 		.BWRI = tariffNo
 	};
 	getWCmd.CRC = ModRTU_CRC((byte*)&getWCmd, sizeof(getWCmd) - sizeof(UInt16));
-	printPackage((byte*)&getWCmd, sizeof(getWCmd), OUT);
 
-	write(ttyd, (byte*)&getWCmd, sizeof(getWCmd));
-	usleep(TIME_OUT);
-
-	// Read responce
 	byte buf[BSZ];
-	int len = nb_read(ttyd, buf, BSZ);
-	usleep(TIME_OUT);
-	printPackage((byte*)buf, len, IN);
+	int len = sendReceiveRetrieve(ttyd, (byte*)&getWCmd, sizeof(getWCmd), buf, BSZ);
 
 	// Check and decode result
 	int checkResult = checkResult_4x4b(buf, len);
