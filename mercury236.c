@@ -369,33 +369,6 @@ int checkResult_4x4b(byte* buf, int len)
 	return OK;
 }
 
-// -- Sends command and receives responce with configured retrieves
-int sendReceiveRetrieve(int ttyd, byte* commandBuff, int commandLen,
-	byte* responceBuff, int responceBuffSize)
-{
-	for (int i = 0; i < MAX_SEND_RECIEVE_ATTEMPTS; i++)
-	{
-		printPackage(commandBuff, commandLen, OUT);
-
-		// Send command
-		write(ttyd, commandBuff, commandLen);
-		usleep(TIME_OUT);
-
-		// Get responce
-		int len = nb_read_impl(ttyd, responceBuff, responceBuffSize);
-		if (len)
-		{
-			printPackage(responceBuff, len, IN);
-			return len;
-		}
-		else
-			continue;		
-	}
-	closeConnection(ttyd);
-	close(ttyd);
-	exitFailure("Command max attempts exceeded.");
-}
-
 // -- Check the communication channel
 int checkChannel(int ttyd)
 {
@@ -463,6 +436,33 @@ int closeConnection(int ttyd)
 	return checkResult_1b(buf, len);
 }
 
+// -- Sends command and receives responce with configured retrieves
+int sendReceiveRetrieve(int ttyd, byte* commandBuff, int commandLen,
+	byte* responceBuff, int responceBuffSize)
+{
+	for (int i = 0; i < MAX_SEND_RECIEVE_ATTEMPTS; i++)
+	{
+		printPackage(commandBuff, commandLen, OUT);
+
+		// Send command
+		write(ttyd, commandBuff, commandLen);
+		usleep(TIME_OUT);
+
+		// Get responce
+		int len = nb_read_impl(ttyd, responceBuff, responceBuffSize);
+		if (len)
+		{
+			printPackage(responceBuff, len, IN);
+			return len;
+		}
+		else
+			continue;		
+	}
+	closeConnection(ttyd);
+	close(ttyd);
+	exitFailure("Command max attempts exceeded.");
+}
+
 // Decode float from 3 bytes
 float B3F(byte b[3], float factor)
 {
@@ -488,16 +488,9 @@ int getU(int ttyd, P3V* U)
 		.BWRI = 0x11
 	};
 	getUCmd.CRC = ModRTU_CRC((byte*)&getUCmd, sizeof(getUCmd) - sizeof(UInt16));
-	printPackage((byte*)&getUCmd, sizeof(getUCmd), OUT);
 
-	write(ttyd, (byte*)&getUCmd, sizeof(getUCmd));
-	usleep(TIME_OUT);
-
-	// Read responce
 	byte buf[BSZ];
-	int len = nb_read(ttyd, buf, BSZ);
-	usleep(TIME_OUT);
-	printPackage((byte*)buf, len, IN);
+	sendReceiveRetrieve(ttyd, (byte*)&getUCmd, sizeof(getUCmd), buf, BSZ);
 
 	// Check and decode result
 	int checkResult = checkResult_3x3b(buf, len);
