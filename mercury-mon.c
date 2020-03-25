@@ -9,6 +9,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/select.h>
+#include <sys/mman.h>
 #include <signal.h>
 #include <fcntl.h>
 #include <termios.h>
@@ -16,7 +17,9 @@
 #include <unistd.h>
 #include "mercury236.h"
 
-#define BSZ	255
+#define BSZ	                255
+#define SHARED_MEM_BACKING_FILE "./mercury-mon-sm"
+#define SHARED_MEM_ACCESS_PERM  0x644
 
 int debugPrint = 1;
 
@@ -89,22 +92,53 @@ int main(int argc, const char** args)
 	// 	}
 	// }
 
-	OutputBlock o;
-	bzero(&o, sizeof(o));
+        // Open shared memory file descriptor
+        int fdSharedMemory = shm_open(
+                                SHARED_MEM_BACKING_FILE,
+                                O_RDWR | O_CREAT,               /* read/write, create if needed */
+                                SHARED_MEM_ACCESS_PERM);        /* access permissions (0644) */
+        if (fdSharedMemory < 0) 
+        {
+                fprintf(stderr, "Can't open shared mem segment...");
+                exit(EXIT_FAIL);
+        }
+
+        ftruncate(fdSharedMemory, sizeof(OutputBlock));           /* set size */
+
+        // Get shared memory block address
+        caddr_t outputBlockPtr = mmap(
+                                NULL,                           /* let system pick where to put segment */
+                                sizeof(OutputBlock),            /* how many bytes */
+                                PROT_READ | PROT_WRITE,         /* access protections */
+                                MAP_SHARED,                     /* mapping visible to other processes */
+                                fdSharedMemory,                 /* file descriptor */
+                                0);                             /* offset: start at 1st byte */
+
+        if (MAP_FAILED == outputBlockPtr)
+        {
+                fprintf(stderr, "Can't get segment...");
+                exit(EXIT_FAIL);
+        }
+
+        fprintf(stderr, "shared mem address: %p [0..%ld]\n", outputBlockPtr, sizeof(OutputBlock) - 1);
+        fprintf(stderr, "backing file:       /dev/shm%s\n", SHARED_MEM_BACKING_FILE );
+
+	OutputBlock* o = (OutputBlock*)outputBlockPtr;
+	bzero(o, sizeof(OutputBlock));
 
         // Open RS485 dongle
         // O_RDWR Read/Write access to serial port
         // O_NOCTTY - No terminal will control the process  
         // O_NDELAY - Non blocking open
-        int fd = open(dev, O_RDWR | O_NOCTTY | O_NDELAY);
+        int RS485 = open(dev, O_RDWR | O_NOCTTY | O_NDELAY);
 
-        if (fd < 0)
+        if (RS485 < 0)
         {
-                printf("Cannot open %s terminal channel.\n\r", dev);
+                fprintf(stderr, "Cannot open %s terminal channel.\n\r", dev);
                 exit(EXIT_FAIL);
         }
 
-        fcntl(fd, F_SETFL, 0);
+        fcntl(RS485, F_SETFL, 0);
 
         struct termios serialPortSettings;
         bzero(&serialPortSettings, sizeof(serialPortSettings));
@@ -124,35 +158,36 @@ int main(int argc, const char** args)
 
         serialPortSettings.c_oflag &= ~OPOST;				/* No Output Processing */
 
-        tcflush(fd, TCIOFLUSH);
-        tcsetattr(fd, TCSANOW, &serialPortSettings);
+        tcflush(RS485, TCIOFLUSH);
+        tcsetattr(RS485, TCSANOW, &serialPortSettings);
 
         //debugPrint = 1;
 
-        switch(checkChannel(fd))
+        int exitCode = 0;
+        switch(checkChannel(RS485))
         {
                 case OK:
                         do
                         {
                                 int loopStatus =
-                                        initConnection(fd) +
+                                        initConnection(RS485) +
                                         
-                                        getU(fd, &o.U) +        // Get voltage by phases
-                                        getI(fd, &o.I) +        // Get current by phases
-                                        getCosF(fd, &o.C) +     // Get power cos(f) by phases
-                                        getF(fd, &o.f) +        // Get grid frequency 
-                                        getA(fd, &o.A) +        // Get phase angles
-                                        getP(fd, &o.P) +        // Get active power consumption by phases
-                                        getS(fd, &o.S) +        // Get reactive power consumption by phases
+                                        getU(RS485, &o->U) +    // Get voltage by phases
+                                        getI(RS485, &o->I) +    // Get current by phases
+                                        getCosF(RS485, &o->C) + // Get power cos(f) by phases
+                                        getF(RS485, &o->f) +    // Get grid frequency 
+                                        getA(RS485, &o->A) +    // Get phase angles
+                                        getP(RS485, &o->P) +    // Get active power consumption by phases
+                                        getS(RS485, &o->S) +    // Get reactive power consumption by phases
 
                                         // Get power counter from reset, for yesterday and today
-                                        getW(fd, &o.PR, PP_RESET, 0, 0) +        // total from reset
-                                        getW(fd, &o.PRT[0], PP_RESET, 0, 0+1) +  // day tariff from reset
-                                        getW(fd, &o.PRT[1], PP_RESET, 0, 1+1) +  // night tariff from reset
-                                        getW(fd, &o.PY, PP_YESTERDAY, 0, 0) + 
-                                        getW(fd, &o.PT, PP_TODAY, 0, 0) +
+                                        getW(RS485, &o->PR, PP_RESET, 0, 0) +        // total from reset
+                                        getW(RS485, &o->PRT[0], PP_RESET, 0, 0+1) +  // day tariff from reset
+                                        getW(RS485, &o->PRT[1], PP_RESET, 0, 1+1) +  // night tariff from reset
+                                        getW(RS485, &o->PY, PP_YESTERDAY, 0, 0) + 
+                                        getW(RS485, &o->PT, PP_TODAY, 0, 0) +
 
-                                        closeConnection(fd);
+                                        closeConnection(RS485);
 
                                 printf((OK == loopStatus)
                                         ? "Successfull power meter data collection cycle.\n\r"
@@ -162,18 +197,28 @@ int main(int argc, const char** args)
 
                         } while (!terminateMonitorNow);
                         
-                        printf("Power meter monitor terminated.\n\r");
-                        close(fd);
-                        exit(EXIT_OK);
+                        printf("Monitor terminated successfully.\n\r");
+                        exitCode = EXIT_OK;
+                        break;
 
                 case CHECK_CHANNEL_FAILURE:
-                        close(fd);
+
                         printf("Power meter channel time out.\n\r");
-                        exit(EXIT_FAIL);
+                        exitCode = EXIT_FAIL;
+                        break;
 
                 default:
-                        close(fd);
+
                         printf("Power meter communication channel test failed.\n\r");
-                        exit(EXIT_FAIL);
+                        exitCode = EXIT_FAIL;
+                        break;
 	}
+
+        // Clean up
+        munmap(outputBlockPtr, sizeof(OutputBlock)); /* unmap the storage */
+        close(RS485);
+        close(fdSharedMemory);
+        shm_unlink(SHARED_MEM_BACKING_FILE);
+
+        exit(exitCode);
 }
