@@ -15,7 +15,7 @@
 #include <unistd.h>
 #include "mercury236.h"
 
-#define BSZ			255
+#define BSZ	255
 
 int debugPrint = 1;
 
@@ -38,7 +38,7 @@ int terminateMonitorNow = 0;
 // -- Signal Handler for SIGINT 
 void sigint_handler(int sig_num)
 {
-        printf("\nUser terminated monitor by Ctrl+C.\n");
+        printf("\nTerminating monitor by Ctrl+C...\n");
         terminateMonitorNow = 1;
 }
 
@@ -133,44 +133,37 @@ int main(int argc, const char** args)
                 case OK:
                         do
                         {
-                                initConnection(fd);
+                                int loopStatus =
+                                        initConnection(fd) +
+                                        
+                                        getU(fd, &o.U) +        // Get voltage by phases
+                                        getI(fd, &o.I) +        // Get current by phases
+                                        getCosF(fd, &o.C) +     // Get power cos(f) by phases
+                                        getF(fd, &o.f) +        // Get grid frequency 
+                                        getA(fd, &o.A) +        // Get phase angles
+                                        getP(fd, &o.P) +        // Get active power consumption by phases
+                                        getS(fd, &o.S) +        // Get reactive power consumption by phases
 
-                                // Get voltage by phases
-                                getU(fd, &o.U);
+                                        // Get power counter from reset, for yesterday and today
+                                        getW(fd, &o.PR, PP_RESET, 0, 0) +        // total from reset
+                                        getW(fd, &o.PRT[0], PP_RESET, 0, 0+1) +  // day tariff from reset
+                                        getW(fd, &o.PRT[1], PP_RESET, 0, 1+1) +  // night tariff from reset
+                                        getW(fd, &o.PY, PP_YESTERDAY, 0, 0) + 
+                                        getW(fd, &o.PT, PP_TODAY, 0, 0) +
 
-                                // Get current by phases
-                                getI(fd, &o.I);
+                                        closeConnection(fd);
 
-                                // Get power cos(f) by phases
-                                getCosF(fd, &o.C);
-
-                                // Get grid frequency
-                                getF(fd, &o.f);
-
-                                // Get phase angles
-                                getA(fd, &o.A);
-
-                                // Get active power consumption by phases
-                                getP(fd, &o.P);
-
-                                // Get reactive power consumption by phases
-                                getS(fd, &o.S);
-
-                                // Get power counter from reset, for yesterday and today
-                                getW(fd, &o.PR, PP_RESET, 0, 0);        // total from reset
-                                getW(fd, &o.PRT[0], PP_RESET, 0, 0+1);  // day tariff from reset
-                                getW(fd, &o.PRT[1], PP_RESET, 0, 1+1);  // night tariff from reset
-                                getW(fd, &o.PY, PP_YESTERDAY, 0, 0);
-                                getW(fd, &o.PT, PP_TODAY, 0, 0);
-
-                                closeConnection(fd);
+                                printf((OK == loopStatus)
+                                        ? "Successfull power meter data collection cycle.\n\r"
+                                        : "One or more errors occurred during data collection.\n\r");
 
                                 usleep(5 * 1000 * 1000); // 5 sec
 
                         } while (!terminateMonitorNow);
                         
+                        printf("Power meter monitor terminated.\n\r");
                         close(fd);
-                        break;
+                        exit(EXIT_OK);
 
                 case CHECK_CHANNEL_FAILURE:
                         close(fd);
@@ -182,6 +175,4 @@ int main(int argc, const char** args)
                         printf("Power meter communication channel test failed.\n\r");
                         exit(EXIT_FAIL);
 	}
-
-	exit(EXIT_OK);
 }
