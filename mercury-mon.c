@@ -132,44 +132,44 @@ int main(int argc, const char** args)
         switch(checkChannel(fd))
         {
                 case OK:
-                        if (OK == initConnection(fd)) 
+                        do
                         {
-                                do
-                                {
-                                        // Get voltage by phases
-                                        getU(fd, &o.U);
+                                initConnection(fd);
 
-                                        // Get current by phases
-                                        getI(fd, &o.I);
+                                // Get voltage by phases
+                                getU(fd, &o.U);
 
-                                        // Get power cos(f) by phases
-                                        getCosF(fd, &o.C);
+                                // Get current by phases
+                                getI(fd, &o.I);
 
-                                        // Get grid frequency
-                                        getF(fd, &o.f);
+                                // Get power cos(f) by phases
+                                getCosF(fd, &o.C);
 
-                                        // Get phase angles
-                                        getA(fd, &o.A);
+                                // Get grid frequency
+                                getF(fd, &o.f);
 
-                                        // Get active power consumption by phases
-                                        getP(fd, &o.P);
+                                // Get phase angles
+                                getA(fd, &o.A);
 
-                                        // Get reactive power consumption by phases
-                                        getS(fd, &o.S);
+                                // Get active power consumption by phases
+                                getP(fd, &o.P);
 
-                                        // Get power counter from reset, for yesterday and today
-                                        getW(fd, &o.PR, PP_RESET, 0, 0);        // total from reset
-                                        getW(fd, &o.PRT[0], PP_RESET, 0, 0+1);  // day tariff from reset
-                                        getW(fd, &o.PRT[1], PP_RESET, 0, 1+1);  // night tariff from reset
-                                        getW(fd, &o.PY, PP_YESTERDAY, 0, 0);
-                                        getW(fd, &o.PT, PP_TODAY, 0, 0);
+                                // Get reactive power consumption by phases
+                                getS(fd, &o.S);
 
-                                        usleep(5 * 1000 * 1000); // 5 sec
+                                // Get power counter from reset, for yesterday and today
+                                getW(fd, &o.PR, PP_RESET, 0, 0);        // total from reset
+                                getW(fd, &o.PRT[0], PP_RESET, 0, 0+1);  // day tariff from reset
+                                getW(fd, &o.PRT[1], PP_RESET, 0, 1+1);  // night tariff from reset
+                                getW(fd, &o.PY, PP_YESTERDAY, 0, 0);
+                                getW(fd, &o.PT, PP_TODAY, 0, 0);
 
-                                } while (!terminateMonitorNow);
-                        }
+                                closeConnection(fd);
 
-                        closeConnection(fd);
+                                usleep(5 * 1000 * 1000); // 5 sec
+
+                        } while (!terminateMonitorNow);
+                        
                         close(fd);
                         break;
 
