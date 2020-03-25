@@ -2,8 +2,9 @@
  *      Mercury power meter command line data fetching utility.
  */
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <strings.h>
 #include <sys/select.h>
 #include <fcntl.h>
 #include <termios.h>
