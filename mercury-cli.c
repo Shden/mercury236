@@ -6,6 +6,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/select.h>
+#include <semaphore.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <time.h>
@@ -21,7 +22,8 @@
 #define OPT_HEADER		"--header"
 
 #define BSZ			255
-#define BAUDRATE 		B57600
+#define MERCURY_SEMAPHORE	"MERCURY_SEMAPHORE"
+#define MERCURY_ACCESS_PERM	0x644
 
 int debugPrint = 0;
 
@@ -177,6 +179,8 @@ int main(int argc, const char** args)
 	OutputBlock o;
 	bzero(&o, sizeof(o));
 
+	int exitCode = OK;
+
 	if (!dryRun)
 	{
 		// Open RS485 dongle
@@ -214,59 +218,75 @@ int main(int argc, const char** args)
 		tcflush(fd, TCIOFLUSH);
 		tcsetattr(fd, TCSANOW, &serialPortSettings);
 
-		switch(checkChannel(fd))
+		// semaphore to ensure exclusive access to the power meter 
+		sem_t* semptr = sem_open(
+					MERCURY_SEMAPHORE,           	/* name */
+					O_CREAT,                        /* create the semaphore */
+					MERCURY_ACCESS_PERM,         	/* protection perms */
+					1);                             /* initial value */
+
+		if (!sem_wait(semptr))
 		{
-			case OK:
-				if (OK != initConnection(fd)) goto stop_conversation;
+			switch(checkChannel(fd))
+			{
+				case OK:
+					if (OK != initConnection(fd)) goto stop_conversation;
 
-				// Get voltage by phases
-				if (OK != getU(fd, &o.U)) goto stop_conversation;
+					// Get voltage by phases
+					if (OK != getU(fd, &o.U)) goto stop_conversation;
 
-				// Get current by phases
-				if (OK != getI(fd, &o.I)) goto stop_conversation;
+					// Get current by phases
+					if (OK != getI(fd, &o.I)) goto stop_conversation;
 
-				// Get power cos(f) by phases
-				if (OK != getCosF(fd, &o.C)) goto stop_conversation;
+					// Get power cos(f) by phases
+					if (OK != getCosF(fd, &o.C)) goto stop_conversation;
 
-				// Get grid frequency
-				if (OK != getF(fd, &o.f)) goto stop_conversation;
+					// Get grid frequency
+					if (OK != getF(fd, &o.f)) goto stop_conversation;
 
-				// Get phase angles
-				if (OK != getA(fd, &o.A)) goto stop_conversation;
+					// Get phase angles
+					if (OK != getA(fd, &o.A)) goto stop_conversation;
 
-				// Get active power consumption by phases
-				if (OK != getP(fd, &o.P)) goto stop_conversation;
+					// Get active power consumption by phases
+					if (OK != getP(fd, &o.P)) goto stop_conversation;
 
-				// Get reactive power consumption by phases
-				if (OK != getS(fd, &o.S)) goto stop_conversation;
+					// Get reactive power consumption by phases
+					if (OK != getS(fd, &o.S)) goto stop_conversation;
 
-				// Get power counter from reset, for yesterday and today
-				if (
-					OK != getW(fd, &o.PR, PP_RESET, 0, 0) ||	// total from reset
-					OK != getW(fd, &o.PRT[0], PP_RESET, 0, 0+1) ||	// day tariff from reset
-					OK != getW(fd, &o.PRT[1], PP_RESET, 0, 1+1) ||	// night tariff from reset
-					OK != getW(fd, &o.PY, PP_YESTERDAY, 0, 0) ||
-					OK != getW(fd, &o.PT, PP_TODAY, 0, 0)) goto stop_conversation;
+					// Get power counter from reset, for yesterday and today
+					if (
+						OK != getW(fd, &o.PR, PP_RESET, 0, 0) ||	// total from reset
+						OK != getW(fd, &o.PRT[0], PP_RESET, 0, 0+1) ||	// day tariff from reset
+						OK != getW(fd, &o.PRT[1], PP_RESET, 0, 1+1) ||	// night tariff from reset
+						OK != getW(fd, &o.PY, PP_YESTERDAY, 0, 0) ||
+						OK != getW(fd, &o.PT, PP_TODAY, 0, 0)) goto stop_conversation;
+						
 
-			stop_conversation:
-				closeConnection(fd);
-				close(fd);
-				break;
+				stop_conversation:
+					closeConnection(fd);
+					close(fd);
+					exitCode = OK;
+					break;
 
-			case CHECK_CHANNEL_FAILURE:
-				close(fd);
-				printf("Power meter channel time out.\n\r");
-				exit(EXIT_FAIL);
+				case CHECK_CHANNEL_FAILURE:
+					close(fd);
+					printf("Power meter channel time out.\n\r");
+					exitCode = EXIT_FAIL;
+					break;
 
-			default:
-				close(fd);
-				printf("Power meter communication channel test failed.\n\r");
-				exit(EXIT_FAIL);
+				default:
+					close(fd);
+					printf("Power meter communication channel test failed.\n\r");
+					exitCode = EXIT_FAIL;
+					break;
+			}
 		}
+		sem_post(semptr);
+		sem_close(semptr);
 	}
 
 	// print the results
 	printOutput(format, o, header);
 
-	exit(EXIT_OK);
+	exit(exitCode);
 }
