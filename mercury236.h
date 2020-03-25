@@ -1,4 +1,5 @@
 #include <sys/types.h>
+#include <sys/select.h>
 #include <stdint.h>
 
 #define UInt16			uint16_t
