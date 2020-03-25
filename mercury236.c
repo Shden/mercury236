@@ -13,7 +13,6 @@
 #include <stdint.h>
 #include "mercury236.h"
 
-#pragma pack(1)
 #define _POSIX_SOURCE 		1		// POSIX compliant source
 #define TIME_OUT		2 * 1000	// Mercury inter-command delay (ms)
 #define CH_TIME_OUT		5		// Channel timeout (sec)

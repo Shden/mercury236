@@ -2,6 +2,8 @@
 #include <sys/select.h>
 #include <stdint.h>
 
+#pragma pack(1)
+
 #define UInt16			uint16_t
 #define byte			unsigned char
 #define TARRIF_NUM		2		// 2 tariffs supported
