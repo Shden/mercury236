@@ -18,7 +18,7 @@
 #include "mercury236.h"
 
 #define BSZ	                255
-#define SHARED_MEM_BACKING_FILE "./mercury-mon-sm"
+#define SHARED_MEM_BACKING_FILE "mercury-mon-sm"
 #define SHARED_MEM_ACCESS_PERM  0x644
 
 int debugPrint = 1;

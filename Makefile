@@ -1,4 +1,4 @@
-OPTIONS = -std=c99
+OPTIONS = -std=c99 -lrt -lpthread
 
 all: mercury236 mercury-mon
 
