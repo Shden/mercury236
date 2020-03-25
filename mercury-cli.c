@@ -50,7 +50,7 @@ void getDateTimeStr(char *str, int length, time_t time)
 // -- Command line usage help
 void printUsage()
 {
-	printf("Usage: mercury236 RS485 [OPTIONS] ...\n\r\n\r");
+	printf("Usage: mercury RS485 [OPTIONS] ...\n\r\n\r");
 	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required\n\r");
 	printf("  %s\tto print extra debug info\n\r", OPT_DEBUG);
 	printf("  %s\tdry run to see output sample, no hardware required\n\r", OPT_TEST_RUN);
