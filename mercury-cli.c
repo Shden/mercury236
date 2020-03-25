@@ -22,7 +22,7 @@
 #define OPT_HEADER		"--header"
 
 #define BSZ			255
-#define MERCURY_SEMAPHORE	"MERCURY_SEMAPHORE"
+#define MERCURY_SEMAPHORE	"MERCURY_RSS"
 #define MERCURY_ACCESS_PERM	0x644
 
 int debugPrint = 0;
