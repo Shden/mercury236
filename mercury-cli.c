@@ -230,8 +230,8 @@ int main(int argc, const char** args)
 		// 	exit(EXIT_FAIL);      
 		// }
 
-		if (!sem_wait(semptr))
-		{
+		// if (!sem_wait(semptr))
+		// {
 			switch(checkChannel(fd))
 			{
 				case OK:
@@ -285,7 +285,7 @@ int main(int argc, const char** args)
 					exitCode = EXIT_FAIL;
 					break;
 			}
-		}
+		// }
 		// sem_post(semptr);
 		// sem_close(semptr);
 	}
