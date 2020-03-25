@@ -224,6 +224,11 @@ int main(int argc, const char** args)
 					O_CREAT,                        /* create the semaphore */
 					MERCURY_ACCESS_PERM,         	/* protection perms */
 					1);                             /* initial value */
+		if (SEM_FAILED == semptr)
+		{
+			fprintf(stderr, "Semaphore open error.");
+			exit(EXIT_FAIL);      
+		}
 
 		if (!sem_wait(semptr))
 		{
