@@ -18,9 +18,8 @@
 #include "mercury236.h"
 
 #define TIME_OUT		2 * 1000	// Mercury inter-command delay (ms)
-#define CH_TIME_OUT		5		// Channel timeout (sec)
+#define CH_TIME_OUT		1		// Channel timeout (sec)
 #define PM_ADDRESS		0		// RS485 addess of the power meter
-#define TIME_BEFORE_RETRIEVE	1 * 1000 * 1000	// Wait 1 sec before retrieve command
 #define BSZ			255
 
 // **** Debug output globals

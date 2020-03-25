@@ -15,7 +15,6 @@
 #include <unistd.h>
 #include "mercury236.h"
 
-#define BAUDRATE 		B57600
 #define BSZ			255
 
 int debugPrint = 1;
