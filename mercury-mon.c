@@ -2,6 +2,7 @@
  *      Mercury power meter monitoring application. The application is designed
  *      to stay active and regularly poll data from the power meter.
  */
+#define _DEFAULT_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
