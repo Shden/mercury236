@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#pragma pack(1)
+#pragma pack(push, 1)
 
 #define UInt16			uint16_t
 #define byte			unsigned char
@@ -174,3 +174,5 @@ int getA(int, P3V*);
 int getP(int, P3VS*);
 int getS(int, P3VS*);
 int getW(int, PWV*, int, int, int);
+
+#pragma pack(pop)

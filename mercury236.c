@@ -3,6 +3,8 @@
  *
  *	RS485 USB dongle is used to connect to the power meter and to collect grid power measures
  *	including voltage, current, consumption power, counters, cos(f) etc.
+ *
+ * 	Protocol documentation: https://www.incotexcom.ru/files/em/docs/mercury-protocol-obmena-9-2019.pdf
  */
 #define _DEFAULT_SOURCE
 
@@ -15,7 +17,6 @@
 #include <stdint.h>
 #include "mercury236.h"
 
-//#define _POSIX_SOURCE 		1		// POSIX compliant source
 #define TIME_OUT		2 * 1000	// Mercury inter-command delay (ms)
 #define CH_TIME_OUT		5		// Channel timeout (sec)
 #define PM_ADDRESS		0		// RS485 addess of the power meter
