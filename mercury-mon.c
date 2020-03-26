@@ -19,6 +19,8 @@
 #include "mercury236.h"
 
 #define BSZ	                255
+#define OPT_DEBUG		"--debug"
+#define OPT_HELP		"--help"
 
 int debugPrint = 1;
 
@@ -33,7 +35,11 @@ void printUsage()
 {
 	printf("Usage: mercury-mon [RS485]\n\r\n\r");
 	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required\n\r");
-        printf("\n\r\n\rPress Ctrl+C to exit.");
+	printf("  %s\tto print extra debug info\n\r", OPT_DEBUG);
+	printf("\n\r");
+	printf("  %s\tprints this screen\n\r", OPT_HELP);
+	printf("\n\r");
+        printf("Press Ctrl+C to exit.");
 }
 
 int terminateMonitorNow = 0;
@@ -61,35 +67,33 @@ int main(int argc, const char** args)
 	char dev[BSZ];
 	strncpy(dev, args[1], BSZ);
 
-	// // get command line options
-	// int dryRun = 0, format = OF_HUMAN, header = 0; 
-
-	// for (int i=2; i<argc; i++)
-	// {
-	// 	if (!strcmp(OPT_DEBUG, args[i]))
-	// 		debugPrint = 1;
-	// 	else if (!strcmp(OPT_TEST_RUN, args[i]))
-	// 		dryRun = 1;
-	// 	else if (!strcmp(OPT_HUMAN, args[i]))
-	// 		format = OF_HUMAN;
-	// 	else if (!strcmp(OPT_CSV, args[i]))
-	// 		format = OF_CSV;
-	// 	else if (!strcmp(OPT_JSON, args[i]))
-	// 		format = OF_JSON;
-	// 	else if (!strcmp(OPT_HEADER, args[i]))
-	// 		header = 1;
-	// 	else if (!strcmp(OPT_HELP, args[i]))
-	// 	{
-	// 		printUsage();
-	// 		exit(EXIT_OK);
-	// 	}
-	// 	else
-	// 	{
-	// 		printf("Error: %s option is not recognised\n\r\n\r", args[i]);
-	// 		printUsage();
-	// 		exit(EXIT_FAIL);
-	// 	}
-	// }
+	// get command line options
+	for (int i=2; i<argc; i++)
+	{
+		if (!strcmp(OPT_DEBUG, args[i]))
+			debugPrint = 1;
+		// else if (!strcmp(OPT_TEST_RUN, args[i]))
+		// 	dryRun = 1;
+		// else if (!strcmp(OPT_HUMAN, args[i]))
+		// 	format = OF_HUMAN;
+		// else if (!strcmp(OPT_CSV, args[i]))
+		// 	format = OF_CSV;
+		// else if (!strcmp(OPT_JSON, args[i]))
+		// 	format = OF_JSON;
+		// else if (!strcmp(OPT_HEADER, args[i]))
+		// 	header = 1;
+		else if (!strcmp(OPT_HELP, args[i]))
+		{
+			printUsage();
+			exit(EXIT_OK);
+		}
+		else
+		{
+			printf("Error: %s option is not recognised\n\r\n\r", args[i]);
+			printUsage();
+			exit(EXIT_FAIL);
+		}
+	}
 
         // // Open shared memory file descriptor
         // int fdSharedMemory = shm_open(
