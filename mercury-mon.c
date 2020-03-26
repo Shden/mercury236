@@ -22,7 +22,7 @@
 #define OPT_DEBUG		"--debug"
 #define OPT_HELP		"--help"
 
-int debugPrint = 1;
+int debugPrint = 0;
 
 typedef enum
 {
@@ -35,11 +35,11 @@ void printUsage()
 {
 	printf("Usage: mercury-mon [RS485]\n\r\n\r");
 	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required\n\r");
-	printf("  %s\tto print extra debug info\n\r", OPT_DEBUG);
+	printf("  %s\tto print extra debug info.\n\r", OPT_DEBUG);
 	printf("\n\r");
-	printf("  %s\tprints this screen\n\r", OPT_HELP);
+	printf("  %s\tprints this screen.\n\r", OPT_HELP);
 	printf("\n\r");
-        printf("Press Ctrl+C to exit.");
+        printf("Press Ctrl+C to exit.\n\r");
 }
 
 int terminateMonitorNow = 0;
