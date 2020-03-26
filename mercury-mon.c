@@ -22,7 +22,6 @@
 #define OPT_DEBUG		"--debug"
 #define OPT_HELP		"--help"
 #define POLL_TIME               5 // seconds
-#define MAX_POWER               17250.0   // 25A * 230V * 3L
 
 int debugPrint = 0;
 
@@ -35,8 +34,9 @@ typedef enum
 // -- Command line usage help
 void printUsage()
 {
-	printf("Usage: mercury-mon [RS485]\n\r\n\r");
+	printf("Usage: mercury-mon [RS485] [MaxPower]\n\r\n\r");
 	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required.\n\r");
+        printf("  MaxPower\t\tpower (Watt) allowed, if this value exceeded, monitor calls script to deactivate some consumers.");
 	printf("  %s\tto print extra debug info.\n\r", OPT_DEBUG);
 	printf("\n\r");
 	printf("  %s\tprints this screen.\n\r", OPT_HELP);
@@ -54,9 +54,9 @@ void sigint_handler(int sig_num)
 }
 
 // -- All checks for current power go here
-void handleConsumptionUpdate(float power)
+void handleConsumptionUpdate(float currentPower, float maxPower)
 {
-        if (MAX_POWER < power)
+        if (currentPower > maxPower)
         {
                 printf("\tMaximum power exceeded.\n\r");
                 FILE* f = fopen("/home/den/Shden/appliances/mainHeater", "w");
@@ -79,14 +79,31 @@ int main(int argc, const char** args)
 		exit(EXIT_FAIL);
 	}
 
+        // must have max power (2nd requred param)
+        if (argc < 3)
+        {
+		printf("Error: max power specified.\n\r\n\r");
+		printUsage();
+		exit(EXIT_FAIL);
+        }
+
         // Ctrl+C handler
         signal(SIGINT, sigint_handler);
 
+        // get RS485 device specification
 	char dev[BSZ];
 	strncpy(dev, args[1], BSZ);
 
+        // get maximum allowed power
+        int maxPower = strtol(args[2], NULL, 10);
+        if (maxPower < 100 || maxPower > 30000)
+        {
+                printf("Error: maximum power (%d) is out of the range (100..30000)", maxPower);
+                exit(EXIT_FAIL);
+        }
+
 	// get command line options
-	for (int i=2; i<argc; i++)
+	for (int i=3; i<argc; i++)
 	{
 		if (!strcmp(OPT_DEBUG, args[i]))
 			debugPrint = 1;
@@ -243,7 +260,7 @@ int main(int argc, const char** args)
                                         : "One or more errors occurred during data collection.\n\r", o.S.sum);
 
                                 // run all checks for the obtained power value
-                                handleConsumptionUpdate(o.S.sum);
+                                handleConsumptionUpdate(o.S.sum, maxPower);
 
                                 usleep(POLL_TIME * 1000 * 1000); // 5 sec
 
