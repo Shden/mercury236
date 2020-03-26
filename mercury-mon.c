@@ -167,7 +167,7 @@ int main(int argc, const char** args)
 	bzero(&o, sizeof(OutputBlock));
 
         // semaphore code to lock the shared mem 
-        int prevMask = umask(0777);
+        int prevMask = umask(0000);
         sem_t* semptr = sem_open(
                                 MERCURY_SEMAPHORE,              /* name */
                                 O_CREAT,                        /* create the semaphore */
