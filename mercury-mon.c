@@ -176,10 +176,16 @@ int main(int argc, const char** args)
         tcflush(RS485, TCIOFLUSH);
         tcsetattr(RS485, TCSANOW, &serialPortSettings);
 
-        //debugPrint = 1;
-
         int exitCode = 0;
-        switch(checkChannel(RS485))
+        int resCheckChannel = CHECK_CHANNEL_FAILURE;
+
+        if (!sem_wait(semptr))
+        {
+                resCheckChannel = checkChannel(RS485);
+                sem_post(semptr);
+        }
+
+        switch(resCheckChannel)
         {
                 case OK:
                         do
