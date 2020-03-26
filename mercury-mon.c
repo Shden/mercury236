@@ -21,6 +21,8 @@
 #define BSZ	                255
 #define OPT_DEBUG		"--debug"
 #define OPT_HELP		"--help"
+#define POLL_TIME               5 // seconds
+#define MAX_POWER               17250.0   // 25A * 230V * 3L
 
 int debugPrint = 0;
 
@@ -51,12 +53,28 @@ void sigint_handler(int sig_num)
         terminateMonitorNow = 1;
 }
 
+// -- All checks for current power go here
+void handleConsumptionUpdate(float power)
+{
+        if (MAX_POWER < power)
+        {
+                printf("\tMaximum power exceeded.\n\r");
+                FILE* f = fopen("/home/den/Shden/appliances/mainHeater", "w");
+                if (NULL != f)
+                {
+                        fputc('0', f);
+                        fclose(f);
+                        printf("\tMain heater turned off.\n\r");
+                }
+        }
+}
+
 int main(int argc, const char** args)
 {
 	// must have RS485 address (1st required param)
 	if (argc < 2)
 	{
-		printf("Error: no RS485 device specified\n\r\n\r");
+		printf("Error: no RS485 device specified.\n\r\n\r");
 		printUsage();
 		exit(EXIT_FAIL);
 	}
@@ -221,10 +239,13 @@ int main(int argc, const char** args)
                                 }        
 
                                 printf((OK == loopStatus)
-                                        ? "Successfull run, current power consumption: %8.2fW\n\r"
+                                        ? "Current power consumption: %8.2fW\n\r"
                                         : "One or more errors occurred during data collection.\n\r", o.S.sum);
 
-                                usleep(5 * 1000 * 1000); // 5 sec
+                                // run all checks for the obtained power value
+                                handleConsumptionUpdate(o.S.sum);
+
+                                usleep(POLL_TIME * 1000 * 1000); // 5 sec
 
                         } while (!terminateMonitorNow);
                         
