@@ -10,6 +10,8 @@
 #include <strings.h>
 #include <sys/select.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <signal.h>
 #include <semaphore.h>
 #include <fcntl.h>
@@ -165,11 +167,13 @@ int main(int argc, const char** args)
 	bzero(&o, sizeof(OutputBlock));
 
         // semaphore code to lock the shared mem 
+        int prevMask = umask(0777);
         sem_t* semptr = sem_open(
                                 MERCURY_SEMAPHORE,              /* name */
                                 O_CREAT,                        /* create the semaphore */
                                 MERCURY_ACCESS_PERM,            /* protection perms */
                                 1);                             /* initial value */
+        umask(prevMask);
         if (SEM_FAILED == semptr)
         {
                 fprintf(stderr, "Semaphore open error.");
