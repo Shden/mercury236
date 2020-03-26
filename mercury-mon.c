@@ -19,9 +19,9 @@
 #include "mercury236.h"
 
 #define BSZ	                255
-#define SHARED_MEM_BACKING_FILE "mercury-mon-sm"
-#define SHARED_MEM_ACCESS_PERM  0x644
-#define SHARED_MEM_SEMAPHORE    "MERCURY_SMS"
+// #define SHARED_MEM_BACKING_FILE "mercury-mon-sm"
+// #define SHARED_MEM_ACCESS_PERM  0x644
+// #define SHARED_MEM_SEMAPHORE    "MERCURY_SMS"
 
 int debugPrint = 1;
 
@@ -94,52 +94,51 @@ int main(int argc, const char** args)
 	// 	}
 	// }
 
-        // Open shared memory file descriptor
-        int fdSharedMemory = shm_open(
-                                SHARED_MEM_BACKING_FILE,
-                                O_RDWR | O_CREAT,               /* read/write, create if needed */
-                                SHARED_MEM_ACCESS_PERM);        /* access permissions (0644) */
-        if (fdSharedMemory < 0) 
-        {
-                fprintf(stderr, "Can't open shared mem segment...");
-                exit(EXIT_FAIL);
-        }
+        // // Open shared memory file descriptor
+        // int fdSharedMemory = shm_open(
+        //                         SHARED_MEM_BACKING_FILE,
+        //                         O_RDWR | O_CREAT,               /* read/write, create if needed */
+        //                         SHARED_MEM_ACCESS_PERM);        /* access permissions (0644) */
+        // if (fdSharedMemory < 0) 
+        // {
+        //         fprintf(stderr, "Can't open shared mem segment...");
+        //         exit(EXIT_FAIL);
+        // }
 
-        ftruncate(fdSharedMemory, sizeof(OutputBlock));           /* set size */
+        // ftruncate(fdSharedMemory, sizeof(OutputBlock));           /* set size */
 
-        // Get shared memory block address
-        caddr_t outputBlockPtr = mmap(
-                                NULL,                           /* let system pick where to put segment */
-                                sizeof(OutputBlock),            /* how many bytes */
-                                PROT_READ | PROT_WRITE,         /* access protections */
-                                MAP_SHARED,                     /* mapping visible to other processes */
-                                fdSharedMemory,                 /* file descriptor */
-                                0);                             /* offset: start at 1st byte */
+        // // Get shared memory block address
+        // caddr_t outputBlockPtr = mmap(
+        //                         NULL,                           /* let system pick where to put segment */
+        //                         sizeof(OutputBlock),            /* how many bytes */
+        //                         PROT_READ | PROT_WRITE,         /* access protections */
+        //                         MAP_SHARED,                     /* mapping visible to other processes */
+        //                         fdSharedMemory,                 /* file descriptor */
+        //                         0);                             /* offset: start at 1st byte */
 
-        if (MAP_FAILED == outputBlockPtr)
-        {
-                fprintf(stderr, "Can't get segment...");
-                exit(EXIT_FAIL);
-        }
+        // if (MAP_FAILED == outputBlockPtr)
+        // {
+        //         fprintf(stderr, "Can't get segment...");
+        //         exit(EXIT_FAIL);
+        // }
 
-        fprintf(stderr, "shared mem address: %p [0..%ld]\n", outputBlockPtr, sizeof(OutputBlock) - 1);
-        fprintf(stderr, "backing file:       /dev/shm%s\n", SHARED_MEM_BACKING_FILE );
+        // fprintf(stderr, "shared mem address: %p [0..%ld]\n", outputBlockPtr, sizeof(OutputBlock) - 1);
+        // fprintf(stderr, "backing file:       /dev/shm%s\n", SHARED_MEM_BACKING_FILE );
 
-	OutputBlock* o = (OutputBlock*)outputBlockPtr;
-	bzero(o, sizeof(OutputBlock));
+	OutputBlock o;
+	bzero(&o, sizeof(OutputBlock));
 
         // semaphore code to lock the shared mem 
         sem_t* semptr = sem_open(
-                                SHARED_MEM_SEMAPHORE,           /* name */
+                                MERCURY_SEMAPHORE,              /* name */
                                 O_CREAT,                        /* create the semaphore */
-                                SHARED_MEM_ACCESS_PERM,         /* protection perms */
+                                MERCURY_ACCESS_PERM,            /* protection perms */
                                 1);                             /* initial value */
         if (SEM_FAILED == semptr)
         {
                 fprintf(stderr, "Semaphore open error.");
                 exit(EXIT_FAIL);      
         }
-
 
         // Open RS485 dongle
         // O_RDWR Read/Write access to serial port
@@ -164,7 +163,7 @@ int main(int argc, const char** args)
         serialPortSettings.c_cflag &= PARENB;				/* Disables the Parity Enable bit(PARENB),So No Parity   */
         serialPortSettings.c_cflag &= ~CSTOPB;				/* CSTOPB = 2 Stop bits,here it is cleared so 1 Stop bit */
         serialPortSettings.c_cflag &= ~CSIZE;				/* Clears the mask for setting the data size             */
-        serialPortSettings.c_cflag |=  CS8;				/* Set the data bits = 8                                 */
+        serialPortSettings.c_cflag |= CS8;				/* Set the data bits = 8                                 */
 
         serialPortSettings.c_cflag |= CREAD | CLOCAL;			/* Enable receiver,Ignore Modem Control lines       */ 
 
@@ -191,20 +190,20 @@ int main(int argc, const char** args)
                                         loopStatus =
                                                 initConnection(RS485) +
                                                 
-                                                getU(RS485, &o->U) +    // Get voltage by phases
-                                                getI(RS485, &o->I) +    // Get current by phases
-                                                getCosF(RS485, &o->C) + // Get power cos(f) by phases
-                                                getF(RS485, &o->f) +    // Get grid frequency 
-                                                getA(RS485, &o->A) +    // Get phase angles
-                                                getP(RS485, &o->P) +    // Get active power consumption by phases
-                                                getS(RS485, &o->S) +    // Get reactive power consumption by phases
+                                                getU(RS485, &o.U) +    // Get voltage by phases
+                                                getI(RS485, &o.I) +    // Get current by phases
+                                                getCosF(RS485, &o.C) + // Get power cos(f) by phases
+                                                getF(RS485, &o.f) +    // Get grid frequency 
+                                                getA(RS485, &o.A) +    // Get phase angles
+                                                getP(RS485, &o.P) +    // Get active power consumption by phases
+                                                getS(RS485, &o.S) +    // Get reactive power consumption by phases
 
                                                 // Get power counter from reset, for yesterday and today
-                                                getW(RS485, &o->PR, PP_RESET, 0, 0) +        // total from reset
-                                                getW(RS485, &o->PRT[0], PP_RESET, 0, 0+1) +  // day tariff from reset
-                                                getW(RS485, &o->PRT[1], PP_RESET, 0, 1+1) +  // night tariff from reset
-                                                getW(RS485, &o->PY, PP_YESTERDAY, 0, 0) + 
-                                                getW(RS485, &o->PT, PP_TODAY, 0, 0) +
+                                                getW(RS485, &o.PR, PP_RESET, 0, 0) +        // total from reset
+                                                getW(RS485, &o.PRT[0], PP_RESET, 0, 0+1) +  // day tariff from reset
+                                                getW(RS485, &o.PRT[1], PP_RESET, 0, 1+1) +  // night tariff from reset
+                                                getW(RS485, &o.PY, PP_YESTERDAY, 0, 0) + 
+                                                getW(RS485, &o.PT, PP_TODAY, 0, 0) +
 
                                                 closeConnection(RS485);
                                         
@@ -238,11 +237,11 @@ int main(int argc, const char** args)
 	}
 
         // Clean up
-        munmap(outputBlockPtr, sizeof(OutputBlock)); /* unmap the storage */
+        // munmap(outputBlockPtr, sizeof(OutputBlock)); /* unmap the storage */
         close(RS485);
-        close(fdSharedMemory);
+        //close(fdSharedMemory);
         sem_close(semptr);
-        shm_unlink(SHARED_MEM_BACKING_FILE);
+        //shm_unlink(SHARED_MEM_BACKING_FILE);
 
         exit(exitCode);
 }

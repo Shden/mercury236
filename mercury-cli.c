@@ -1,5 +1,16 @@
 /*
  *      Mercury power meter command line data fetching utility.
+ * 
+ * 	Implementation note:
+ * 	Exclusive access to the power meter implemented using semaphore (MERCURY_SEMAPHORE)
+ * 	so that multiple utilites can get data simultaneously without conflicts. Please make 
+ * 	sure all users have proper rights to the semaphore e.g.
+ * 	
+ * 	$ ls -l /dev/shm/sem.MERCURY_RS485 
+ * 	-rwxrwSrwT 1 www-data www-data 16 Mar 26 12:10 /dev/shm/sem.MERCURY_RS485
+ * 
+ * 	To grant access to other users:
+ * 	$ sudo chmod +666 /dev/shm/sem.MERCURY_RS485
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,8 +33,6 @@
 #define OPT_HEADER		"--header"
 
 #define BSZ			255
-#define MERCURY_SEMAPHORE	"MERCURY_RS485"
-#define MERCURY_ACCESS_PERM	0x666
 
 int debugPrint = 0;
 
@@ -230,6 +239,7 @@ int main(int argc, const char** args)
 			exit(EXIT_FAIL);      
 		}
 
+		// obtain exclusive access
 		if (!sem_wait(semptr))
 		{
 			switch(checkChannel(fd))
