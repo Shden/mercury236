@@ -36,7 +36,7 @@ void printUsage()
 {
 	printf("Usage: mercury-mon [RS485] [MaxPower]\n\r\n\r");
 	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required.\n\r");
-        printf("  MaxPower\t\tpower (Watt) allowed, if this value exceeded, monitor calls script to deactivate some consumers.");
+        printf("  MaxPower\tpower (Watt) allowed, if this value exceeded, monitor calls script to deactivate some consumers.");
 	printf("  %s\tto print extra debug info.\n\r", OPT_DEBUG);
 	printf("\n\r");
 	printf("  %s\tprints this screen.\n\r", OPT_HELP);
@@ -98,7 +98,7 @@ int main(int argc, const char** args)
         int maxPower = strtol(args[2], NULL, 10);
         if (maxPower < 100 || maxPower > 30000)
         {
-                printf("Error: maximum power (%d) is out of the range (100..30000)", maxPower);
+                printf("Error: maximum power (%d) is out of the range (100..30000).\n\r", maxPower);
                 exit(EXIT_FAIL);
         }
 
