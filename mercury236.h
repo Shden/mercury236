@@ -15,7 +15,7 @@
 #define TARRIF_NUM		2		// 2 tariffs supported
 
 #define MERCURY_SEMAPHORE	"MERCURY_RS485"
-#define MERCURY_ACCESS_PERM	0x666
+#define MERCURY_ACCESS_PERM	0666
 
 // ***** Commands
 // Test connection
