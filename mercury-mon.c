@@ -34,7 +34,7 @@ typedef enum
 void printUsage()
 {
 	printf("Usage: mercury-mon [RS485]\n\r\n\r");
-	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required\n\r");
+	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required.\n\r");
 	printf("  %s\tto print extra debug info.\n\r", OPT_DEBUG);
 	printf("\n\r");
 	printf("  %s\tprints this screen.\n\r", OPT_HELP);
@@ -215,8 +215,8 @@ int main(int argc, const char** args)
                                 }        
 
                                 printf((OK == loopStatus)
-                                        ? "Successfull power meter data collection cycle.\n\r"
-                                        : "One or more errors occurred during data collection.\n\r");
+                                        ? "Successfull run, current power consumption: %8.2fW\n\r"
+                                        : "One or more errors occurred during data collection.\n\r", o.S.sum);
 
                                 usleep(5 * 1000 * 1000); // 5 sec
 
