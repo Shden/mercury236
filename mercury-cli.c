@@ -23,7 +23,7 @@
 
 #define BSZ			255
 #define MERCURY_SEMAPHORE	"MERCURY_RS485"
-#define MERCURY_ACCESS_PERM	0x777
+#define MERCURY_ACCESS_PERM	0x666
 
 int debugPrint = 0;
 
@@ -218,20 +218,20 @@ int main(int argc, const char** args)
 		tcflush(fd, TCIOFLUSH);
 		tcsetattr(fd, TCSANOW, &serialPortSettings);
 
-		// // semaphore to ensure exclusive access to the power meter 
-		// sem_t* semptr = sem_open(
-		// 			MERCURY_SEMAPHORE,           	/* name */
-		// 			O_CREAT,                        /* create the semaphore */
-		// 			MERCURY_ACCESS_PERM,         	/* protection perms */
-		// 			1);                             /* initial value */
-		// if (SEM_FAILED == semptr)
-		// {
-		// 	fprintf(stderr, "Semaphore open error.");
-		// 	exit(EXIT_FAIL);      
-		// }
+		// semaphore to ensure exclusive access to the power meter 
+		sem_t* semptr = sem_open(
+					MERCURY_SEMAPHORE,           	/* name */
+					O_CREAT,                        /* create the semaphore */
+					MERCURY_ACCESS_PERM,         	/* protection perms */
+					1);                             /* initial value */
+		if (SEM_FAILED == semptr)
+		{
+			fprintf(stderr, "Semaphore open error.");
+			exit(EXIT_FAIL);      
+		}
 
-		// if (!sem_wait(semptr))
-		// {
+		if (!sem_wait(semptr))
+		{
 			switch(checkChannel(fd))
 			{
 				case OK:
@@ -285,9 +285,9 @@ int main(int argc, const char** args)
 					exitCode = EXIT_FAIL;
 					break;
 			}
-		// }
-		// sem_post(semptr);
-		// sem_close(semptr);
+		}
+		sem_post(semptr);
+		sem_close(semptr);
 	}
 
 	// print the results
