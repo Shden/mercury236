@@ -1,6 +1,38 @@
 /*
  *      Mercury power meter monitoring application. The application is designed
  *      to stay active and regularly poll data from the power meter.
+ * 
+ *      Installation as a service on RPi:
+ * 
+ *      1. Create service file
+ *      $ sudo nano /etc/systemd/system/mercury-mon.service
+ * 
+ *      Description=mercury-mon
+ * 
+ *      Wants=network.target
+ *      After=syslog.target network-online.target
+ * 
+ *      [Service]
+ *      Type=simple
+ *      ExecStart=/home/den/Shden/mercury236/mercury-mon /dev/ttyUSB0 17250
+ *      Restart=on-failure
+ *      RestartSec=10
+ *      KillMode=process
+ * 
+ *      [Install]
+ *      WantedBy=multi-user.target
+ * 
+ *      2. Reload services:
+ *      $ sudo systemctl daemon-reload
+ * 
+ *      3. Enable the service:
+ *      $ sudo systemctl enable mercury-mon
+ * 
+ *      4. Start the service:
+ *      $ sudo systemctl start
+ * 
+ *      5. Check the status of service:
+ *      $ systemctl status mercury-mon
  */
 #define _DEFAULT_SOURCE
 

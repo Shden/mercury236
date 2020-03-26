@@ -7,10 +7,7 @@
  * 	sure all users have proper rights to the semaphore e.g.
  * 	
  * 	$ ls -l /dev/shm/sem.MERCURY_RS485 
- * 	-rwxrwSrwT 1 www-data www-data 16 Mar 26 12:10 /dev/shm/sem.MERCURY_RS485
- * 
- * 	To grant access to other users:
- * 	$ sudo chmod +666 /dev/shm/sem.MERCURY_RS485
+ * 	-rw-rw-rw- 1 root root 16 Mar 26 23:52 /dev/shm/sem.MERCURY_RS485
  */
 #include <stdio.h>
 #include <stdlib.h>
