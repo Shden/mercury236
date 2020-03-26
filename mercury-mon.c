@@ -19,9 +19,6 @@
 #include "mercury236.h"
 
 #define BSZ	                255
-// #define SHARED_MEM_BACKING_FILE "mercury-mon-sm"
-// #define SHARED_MEM_ACCESS_PERM  0x644
-// #define SHARED_MEM_SEMAPHORE    "MERCURY_SMS"
 
 int debugPrint = 1;
 
@@ -190,20 +187,22 @@ int main(int argc, const char** args)
                                         loopStatus =
                                                 initConnection(RS485) +
                                                 
-                                                getU(RS485, &o.U) +    // Get voltage by phases
-                                                getI(RS485, &o.I) +    // Get current by phases
-                                                getCosF(RS485, &o.C) + // Get power cos(f) by phases
-                                                getF(RS485, &o.f) +    // Get grid frequency 
-                                                getA(RS485, &o.A) +    // Get phase angles
-                                                getP(RS485, &o.P) +    // Get active power consumption by phases
+                                                // getU(RS485, &o.U) +    // Get voltage by phases
+                                                // getI(RS485, &o.I) +    // Get current by phases
+                                                // getCosF(RS485, &o.C) + // Get power cos(f) by phases
+                                                // getF(RS485, &o.f) +    // Get grid frequency 
+                                                // getA(RS485, &o.A) +    // Get phase angles
+                                                // getP(RS485, &o.P) +    // Get active power consumption by phases
+
+                                                // Only poll for power consumption
                                                 getS(RS485, &o.S) +    // Get reactive power consumption by phases
 
-                                                // Get power counter from reset, for yesterday and today
-                                                getW(RS485, &o.PR, PP_RESET, 0, 0) +        // total from reset
-                                                getW(RS485, &o.PRT[0], PP_RESET, 0, 0+1) +  // day tariff from reset
-                                                getW(RS485, &o.PRT[1], PP_RESET, 0, 1+1) +  // night tariff from reset
-                                                getW(RS485, &o.PY, PP_YESTERDAY, 0, 0) + 
-                                                getW(RS485, &o.PT, PP_TODAY, 0, 0) +
+                                                // // Get power counter from reset, for yesterday and today
+                                                // getW(RS485, &o.PR, PP_RESET, 0, 0) +        // total from reset
+                                                // getW(RS485, &o.PRT[0], PP_RESET, 0, 0+1) +  // day tariff from reset
+                                                // getW(RS485, &o.PRT[1], PP_RESET, 0, 1+1) +  // night tariff from reset
+                                                // getW(RS485, &o.PY, PP_YESTERDAY, 0, 0) + 
+                                                // getW(RS485, &o.PT, PP_TODAY, 0, 0) +
 
                                                 closeConnection(RS485);
                                         
@@ -239,9 +238,7 @@ int main(int argc, const char** args)
         // Clean up
         // munmap(outputBlockPtr, sizeof(OutputBlock)); /* unmap the storage */
         close(RS485);
-        //close(fdSharedMemory);
         sem_close(semptr);
-        //shm_unlink(SHARED_MEM_BACKING_FILE);
-
+ 
         exit(exitCode);
 }
