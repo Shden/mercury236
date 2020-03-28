@@ -272,7 +272,7 @@ int main(int argc, const char** args)
                                         sem_post(semptr);
                                 }        
 
-                                if (loopCount == 50)
+                                if (loopCount > 20)
                                 {
                                         loopCount = 0;                                        
                                         syslog(LOG_NOTICE, (OK == loopStatus)
