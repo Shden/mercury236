@@ -46,6 +46,7 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <semaphore.h>
+#include <syslog.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <time.h>
@@ -92,32 +93,36 @@ void handleConsumptionUpdate(float currentPower, float maxPower)
 {
         if (currentPower > maxPower)
         {
-                printf("\tMaximum power exceeded.\n\r");
+                syslog(LOG_NOTICE, "\tMaximum power exceeded.\n\r");
                 FILE* f = fopen("/home/den/Shden/appliances/mainHeater", "w");
                 if (NULL != f)
                 {
                         fputc('0', f);
                         fclose(f);
-                        printf("\tMain heater turned off.\n\r");
+                        syslog(LOG_NOTICE, "\tMain heater turned off.\n\r");
                 }
         }
 }
 
 int main(int argc, const char** args)
 {
+        openlog("mercury-monitor", LOG_PERROR, LOG_DAEMON);
+
 	// must have RS485 address (1st required param)
 	if (argc < 2)
 	{
-		printf("Error: no RS485 device specified.\n\r\n\r");
+		syslog(LOG_NOTICE, "Error: no RS485 device specified.\n\r\n\r");
 		printUsage();
+                closelog();
 		exit(EXIT_FAIL);
 	}
 
         // must have max power (2nd requred param)
         if (argc < 3)
         {
-		printf("Error: max power specified.\n\r\n\r");
+		syslog(LOG_NOTICE, "Error: max power specified.\n\r\n\r");
 		printUsage();
+                closelog();
 		exit(EXIT_FAIL);
         }
 
@@ -132,7 +137,8 @@ int main(int argc, const char** args)
         int maxPower = strtol(args[2], NULL, 10);
         if (maxPower < 100 || maxPower > 30000)
         {
-                printf("Error: maximum power (%d) is out of the range (100..30000).\n\r", maxPower);
+                syslog(LOG_NOTICE, "Error: maximum power (%d) is out of the range (100..30000).\n\r", maxPower);
+                closelog();
                 exit(EXIT_FAIL);
         }
 
@@ -154,48 +160,19 @@ int main(int argc, const char** args)
 		else if (!strcmp(OPT_HELP, args[i]))
 		{
 			printUsage();
+                        closelog();
 			exit(EXIT_OK);
 		}
 		else
 		{
-			printf("Error: %s option is not recognised\n\r\n\r", args[i]);
+			syslog(LOG_NOTICE, "Error: %s option is not recognised\n\r\n\r", args[i]);
 			printUsage();
+                        closelog();
 			exit(EXIT_FAIL);
 		}
 	}
 
-        // // Open shared memory file descriptor
-        // int fdSharedMemory = shm_open(
-        //                         SHARED_MEM_BACKING_FILE,
-        //                         O_RDWR | O_CREAT,               /* read/write, create if needed */
-        //                         SHARED_MEM_ACCESS_PERM);        /* access permissions (0644) */
-        // if (fdSharedMemory < 0) 
-        // {
-        //         fprintf(stderr, "Can't open shared mem segment...");
-        //         exit(EXIT_FAIL);
-        // }
-
-        // ftruncate(fdSharedMemory, sizeof(OutputBlock));           /* set size */
-
-        // // Get shared memory block address
-        // caddr_t outputBlockPtr = mmap(
-        //                         NULL,                           /* let system pick where to put segment */
-        //                         sizeof(OutputBlock),            /* how many bytes */
-        //                         PROT_READ | PROT_WRITE,         /* access protections */
-        //                         MAP_SHARED,                     /* mapping visible to other processes */
-        //                         fdSharedMemory,                 /* file descriptor */
-        //                         0);                             /* offset: start at 1st byte */
-
-        // if (MAP_FAILED == outputBlockPtr)
-        // {
-        //         fprintf(stderr, "Can't get segment...");
-        //         exit(EXIT_FAIL);
-        // }
-
-        // fprintf(stderr, "shared mem address: %p [0..%ld]\n", outputBlockPtr, sizeof(OutputBlock) - 1);
-        // fprintf(stderr, "backing file:       /dev/shm%s\n", SHARED_MEM_BACKING_FILE );
-
-	OutputBlock o;
+ 	OutputBlock o;
 	bzero(&o, sizeof(OutputBlock));
 
         // semaphore code to lock the shared mem 
@@ -208,7 +185,8 @@ int main(int argc, const char** args)
         umask(prevMask);
         if (SEM_FAILED == semptr)
         {
-                fprintf(stderr, "Semaphore open error.");
+                syslog(LOG_NOTICE, "Semaphore open error.");
+                closelog();
                 exit(EXIT_FAIL);      
         }
 
@@ -220,7 +198,8 @@ int main(int argc, const char** args)
 
         if (RS485 < 0)
         {
-                fprintf(stderr, "Cannot open %s terminal channel.\n\r", dev);
+                syslog(LOG_NOTICE, "Cannot open %s terminal channel.\n\r", dev);
+                closelog();
                 exit(EXIT_FAIL);
         }
 
@@ -291,7 +270,7 @@ int main(int argc, const char** args)
                                         sem_post(semptr);
                                 }        
 
-                                printf((OK == loopStatus)
+                                syslog(LOG_NOTICE, (OK == loopStatus)
                                         ? "Current power consumption: %8.2fW\n\r"
                                         : "One or more errors occurred during data collection.\n\r", o.S.sum);
 
@@ -308,13 +287,13 @@ int main(int argc, const char** args)
 
                 case CHECK_CHANNEL_FAILURE:
 
-                        printf("Power meter channel time out.\n\r");
+                        syslog(LOG_NOTICE, "Power meter channel time out.\n\r");
                         exitCode = EXIT_FAIL;
                         break;
 
                 default:
 
-                        printf("Power meter communication channel test failed.\n\r");
+                        syslog(LOG_NOTICE, "Power meter communication channel test failed.\n\r");
                         exitCode = EXIT_FAIL;
                         break;
 	}
@@ -324,5 +303,6 @@ int main(int argc, const char** args)
         close(RS485);
         sem_close(semptr);
  
+        closelog();
         exit(exitCode);
 }
