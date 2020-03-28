@@ -106,12 +106,12 @@ void handleConsumptionUpdate(float currentPower, float maxPower)
 
 int main(int argc, const char** args)
 {
-        openlog("mercury-monitor", LOG_PERROR, LOG_DAEMON);
+        openlog(NULL, LOG_PID, LOG_DAEMON);
 
 	// must have RS485 address (1st required param)
 	if (argc < 2)
 	{
-		syslog(LOG_NOTICE, "Error: no RS485 device specified.\n\r\n\r");
+		syslog(LOG_NOTICE, "Error: no RS485 device specified.\n\r");
 		printUsage();
                 closelog();
 		exit(EXIT_FAIL);
@@ -120,7 +120,7 @@ int main(int argc, const char** args)
         // must have max power (2nd requred param)
         if (argc < 3)
         {
-		syslog(LOG_NOTICE, "Error: max power specified.\n\r\n\r");
+		syslog(LOG_NOTICE, "Error: max power specified.\n\r");
 		printUsage();
                 closelog();
 		exit(EXIT_FAIL);
@@ -165,7 +165,7 @@ int main(int argc, const char** args)
 		}
 		else
 		{
-			syslog(LOG_NOTICE, "Error: %s option is not recognised\n\r\n\r", args[i]);
+			syslog(LOG_NOTICE, "Error: %s option is not recognised\n\r", args[i]);
 			printUsage();
                         closelog();
 			exit(EXIT_FAIL);
@@ -235,11 +235,13 @@ int main(int argc, const char** args)
                 sem_post(semptr);
         }
 
+        int loopCount = 0;
         switch(resCheckChannel)
         {
                 case OK:
                         do
                         {
+                                loopCount++;
                                 int loopStatus = OK;
                                 /* wait until semaphore != 0 */
                                 if (!sem_wait(semptr))
@@ -270,10 +272,14 @@ int main(int argc, const char** args)
                                         sem_post(semptr);
                                 }        
 
-                                syslog(LOG_NOTICE, (OK == loopStatus)
-                                        ? "Current power consumption: %8.2fW\n\r"
-                                        : "One or more errors occurred during data collection.\n\r", o.S.sum);
-
+                                if (loopCount == 50)
+                                {
+                                        loopCount = 0;                                        
+                                        syslog(LOG_NOTICE, (OK == loopStatus)
+                                                ? "Current power consumption: %8.2fW\n\r"
+                                                : "One or more errors occurred during data collection.\n\r", o.S.sum);
+                                
+                                }
                                 // run all checks for the obtained power value
                                 handleConsumptionUpdate(o.S.sum, maxPower);
 
