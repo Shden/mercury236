@@ -93,13 +93,13 @@ void handleConsumptionUpdate(float currentPower, float maxPower)
 {
         if (currentPower > maxPower)
         {
-                syslog(LOG_NOTICE, "\tMaximum power exceeded.\n\r");
+                syslog(LOG_NOTICE, "Maximum power exceeded (%8.2fW).\n\r", currentPower);
                 FILE* f = fopen("/home/den/Shden/appliances/mainHeater", "w");
                 if (NULL != f)
                 {
                         fputc('0', f);
                         fclose(f);
-                        syslog(LOG_NOTICE, "\tMain heater turned off.\n\r");
+                        syslog(LOG_NOTICE, "Main heater turned off.\n\r");
                 }
         }
 }
