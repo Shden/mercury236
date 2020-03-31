@@ -69,9 +69,10 @@ typedef enum
 // -- Command line usage help
 void printUsage()
 {
-	printf("Usage: mercury-mon [RS485] [MaxPower]\n\r\n\r");
+	printf("Usage: mercury-mon [RS485] [MaxPower] [LogFactor]\n\r\n\r");
 	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required.\n\r");
         printf("  MaxPower\tpower (Watt) allowed, if this value exceeded, monitor calls script to deactivate some consumers.");
+        printf("  LogFactor\tlog 1 of LogFactor power measurments to log file.\n\r");
 	printf("  %s\tto print extra debug info.\n\r", OPT_DEBUG);
 	printf("\n\r");
 	printf("  %s\tprints this screen.\n\r", OPT_HELP);
@@ -104,6 +105,7 @@ void handleConsumptionUpdate(float currentPower, float maxPower)
         }
 }
 
+// Command line format^
 int main(int argc, const char** args)
 {
         openlog(NULL, LOG_PID, LOG_DAEMON);
@@ -120,10 +122,19 @@ int main(int argc, const char** args)
         // must have max power (2nd requred param)
         if (argc < 3)
         {
-		syslog(LOG_NOTICE, "Error: max power specified.\n\r");
+		syslog(LOG_NOTICE, "Error: no max power specified.\n\r");
 		printUsage();
                 closelog();
 		exit(EXIT_FAIL);
+        }
+
+        // must have log factor (3rd requried param)
+        if (argc < 4)
+        {
+                syslog(LOG_NOTICE, "Error: no log factor provided.\n\r");
+                printUsage();
+                closelog();
+                exit(EXIT_FAIL);
         }
 
         // Ctrl+C handler
@@ -138,6 +149,15 @@ int main(int argc, const char** args)
         if (maxPower < 100 || maxPower > 30000)
         {
                 syslog(LOG_NOTICE, "Error: maximum power (%d) is out of the range (100..30000).\n\r", maxPower);
+                closelog();
+                exit(EXIT_FAIL);
+        }
+
+        // get log factor
+        int logFactor = strtol(args[3], NULL, 10);
+        if (logFactor < 1 || logFactor > 100)
+        {
+                syslog(LOG_NOTICE, "Error: log factor (%d) is out of the range (1..100).\n\r", logFactor);
                 closelog();
                 exit(EXIT_FAIL);
         }
@@ -272,7 +292,7 @@ int main(int argc, const char** args)
                                         sem_post(semptr);
                                 }        
 
-                                if (loopCount > 20)
+                                if (loopCount >= logFactor)
                                 {
                                         loopCount = 0;                                        
                                         syslog(LOG_NOTICE, (OK == loopStatus)
