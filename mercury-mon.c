@@ -163,7 +163,7 @@ int main(int argc, const char** args)
         }
 
 	// get command line options
-	for (int i=3; i<argc; i++)
+	for (int i=4; i<argc; i++)
 	{
 		if (!strcmp(OPT_DEBUG, args[i]))
 			debugPrint = 1;
