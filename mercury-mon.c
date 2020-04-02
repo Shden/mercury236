@@ -14,7 +14,7 @@
  * 
  *      [Service]
  *      Type=simple
- *      ExecStart=/home/den/Shden/mercury236/mercury-mon /dev/ttyUSB0 17250
+ *      ExecStart=/home/den/Shden/mercury236/mercury-mon /dev/ttyUSB0 16500 20
  *      Restart=on-failure
  *      RestartSec=10
  *      KillMode=process
@@ -56,7 +56,6 @@
 #define BSZ	                255
 #define OPT_DEBUG		"--debug"
 #define OPT_HELP		"--help"
-#define POLL_TIME               5 // seconds
 
 int debugPrint = 0;
 
@@ -69,10 +68,11 @@ typedef enum
 // -- Command line usage help
 void printUsage()
 {
-	printf("Usage: mercury-mon [RS485] [MaxPower] [LogFactor]\n\r\n\r");
+	printf("Usage: mercury-mon [RS485] [MaxPower] [LogFactor] [PollTime]\n\r\n\r");
 	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required.\n\r");
         printf("  MaxPower\tpower (Watt) allowed, if this value exceeded, monitor calls script to deactivate some consumers.");
-        printf("  LogFactor\tlog 1 of LogFactor power measurments to log file.\n\r");
+        printf("  LogFactor\twrite to log 1 of LogFactor power measurments to log file.\n\r");
+        printf("  PollTime\tpower meter poll time cycle (seconds).\n\r");
 	printf("  %s\tto print extra debug info.\n\r", OPT_DEBUG);
 	printf("\n\r");
 	printf("  %s\tprints this screen.\n\r", OPT_HELP);
@@ -105,7 +105,7 @@ void handleConsumptionUpdate(float currentPower, float maxPower)
         }
 }
 
-// Command line format^
+// Usage: mercury-mon [RS485] [MaxPower] [LogFactor] [options]
 int main(int argc, const char** args)
 {
         openlog(NULL, LOG_PID, LOG_DAEMON);
@@ -137,6 +137,15 @@ int main(int argc, const char** args)
                 exit(EXIT_FAIL);
         }
 
+        // must have poll time (4th requred param)
+        if (argc < 5)
+        {
+                syslog(LOG_NOTICE, "Error: no poll time provided.\n\r");
+                printUsage();
+                closelog();
+                exit(EXIT_FAIL);
+        }
+
         // Ctrl+C handler
         signal(SIGINT, sigint_handler);
 
@@ -162,8 +171,17 @@ int main(int argc, const char** args)
                 exit(EXIT_FAIL);
         }
 
+        // get poll time
+        int pollTime = strtol(args[4], NULL, 10);
+        if (pollTime < 1 || pollTime > 600)
+        {
+                syslog(LOG_NOTICE, "Error: poll time (%d) is out of the range (1..600).\n\r", pollTime);
+                closelog();
+                exit(EXIT_FAIL);
+        }
+
 	// get command line options
-	for (int i=4; i<argc; i++)
+	for (int i=5; i<argc; i++)
 	{
 		if (!strcmp(OPT_DEBUG, args[i]))
 			debugPrint = 1;
@@ -303,7 +321,7 @@ int main(int argc, const char** args)
                                 // run all checks for the obtained power value
                                 handleConsumptionUpdate(o.S.sum, maxPower);
 
-                                usleep(POLL_TIME * 1000 * 1000); // 5 sec
+                                usleep(pollTime * 1000 * 1000); // 5 sec
 
                         } while (!terminateMonitorNow);
                         
