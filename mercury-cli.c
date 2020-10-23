@@ -24,6 +24,7 @@
 #define OPT_DEBUG		"--debug"
 #define OPT_HELP		"--help"
 #define OPT_TEST_RUN		"--testRun"
+#define OPT_TEST_FAIL		"--testFail"
 #define OPT_HUMAN		"--human"
 #define OPT_CSV			"--csv"
 #define OPT_JSON		"--json"
@@ -61,7 +62,8 @@ void printUsage()
 	printf("Usage: mercury RS485 [OPTIONS] ...\n\r\n\r");
 	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required\n\r");
 	printf("  %s\tto print extra debug info\n\r", OPT_DEBUG);
-	printf("  %s\tdry run to see output sample, no hardware required\n\r", OPT_TEST_RUN);
+	printf("  %s\tdry run to see output sample, no hardware involved\n\r", OPT_TEST_RUN);
+	printf("  %s\tdry run to get failure responce, no hardware involved\n\r", OPT_TEST_FAIL);
 	printf("\n\r");
 	printf("  Output formatting:\n\r");
 	printf("  %s\thuman readable (default)\n\r", OPT_HUMAN);
@@ -150,7 +152,7 @@ int main(int argc, const char** args)
 	}
 
 	// get command line options
-	int dryRun = 0, format = OF_HUMAN, header = 0; 
+	int dryRun = 0, dryFail = 0, format = OF_HUMAN, header = 0; 
 
 	char dev[BSZ];
 	strncpy(dev, args[1], BSZ);
@@ -161,6 +163,8 @@ int main(int argc, const char** args)
 			debugPrint = 1;
 		else if (!strcmp(OPT_TEST_RUN, args[i]))
 			dryRun = 1;
+		else if (!strcmp(OPT_TEST_FAIL, args[i]))
+			dryFail = 1;
 		else if (!strcmp(OPT_HUMAN, args[i]))
 			format = OF_HUMAN;
 		else if (!strcmp(OPT_CSV, args[i]))
@@ -184,6 +188,13 @@ int main(int argc, const char** args)
 
 	OutputBlock o;
 	bzero(&o, sizeof(o));
+
+	if (dryFail)
+	{
+		printf("Error emuluation mode. Will terminate with error result code.\n\r");
+		exit(EXIT_FAIL);
+
+	}
 
 	int exitCode = OK;
 
