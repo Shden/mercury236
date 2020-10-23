@@ -129,6 +129,13 @@ typedef struct
 	float 	rm;		// reactive -
 } PWV;
 
+// Mains status
+typedef enum
+{
+	MS_OFF = 0,		// No external power available, mains OFF
+	MS_ON = 1		// Normal power supply, mains ON
+} MS;
+
 
 // Output results block
 typedef struct
@@ -144,6 +151,7 @@ typedef struct
 	PWV	PY;			// power counters for yesterday
 	PWV	PT;			// power counters for today
 	float	f;			// grid frequency
+	MS	ms;			// mains status
 } OutputBlock;
 
 typedef enum 			// How much energy consumed:

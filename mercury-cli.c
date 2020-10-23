@@ -62,8 +62,8 @@ void printUsage()
 	printf("Usage: mercury RS485 [OPTIONS] ...\n\r\n\r");
 	printf("  RS485\t\taddress of RS485 dongle (e.g. /dev/ttyUSB0), required\n\r");
 	printf("  %s\tto print extra debug info\n\r", OPT_DEBUG);
-	printf("  %s\tdry run to see output sample, no hardware involved\n\r", OPT_TEST_RUN);
-	printf("  %s\tdry run to get failure responce, no hardware involved\n\r", OPT_TEST_FAIL);
+	printf("  %s\tdry run to see output sample, as if the mains was ON\n\r", OPT_TEST_RUN);
+	printf("  %s\tdry run to get output sample, as if the mains was OFF\n\r", OPT_TEST_FAIL);
 	printf("\n\r");
 	printf("  Output formatting:\n\r");
 	printf("  %s\thuman readable (default)\n\r", OPT_HUMAN);
@@ -84,6 +84,7 @@ void printOutput(int format, OutputBlock o, int header)
 	switch(format)
 	{
 		case OF_HUMAN:
+			printf("  Mains status:                         %8s\n\r", (o.ms) ? "On" : "Off");
 			printf("  Voltage (V):             		%8.2f %8.2f %8.2f\n\r", o.U.p1, o.U.p2, o.U.p3);
 			printf("  Current (A):             		%8.2f %8.2f %8.2f\n\r", o.I.p1, o.I.p2, o.I.p3);
 			printf("  Cos(f):                  		%8.2f %8.2f %8.2f (%8.2f)\n\r", o.C.p1, o.C.p2, o.C.p3, o.C.sum);
@@ -102,10 +103,10 @@ void printOutput(int format, OutputBlock o, int header)
 			if (header)
 			{
 				// to be the same order as params below
-				printf("DT,U1,U2,U3,I1,I2,I3,P1,P2,P2,Psum,S1,S2,S3,Ssum,C1,C2,C3,Csum,F,A1,A2,A3,PRa,PYa,PTa\n\r");
+				printf("DT,U1,U2,U3,I1,I2,I3,P1,P2,P2,Psum,S1,S2,S3,Ssum,C1,C2,C3,Csum,F,A1,A2,A3,PRa,PYa,PTa,MS\n\r");
 
 			}
-			printf("%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n\r",
+			printf("%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%d\n\r",
 				timeStamp,
 				o.U.p1, o.U.p2, o.U.p3,
 				o.I.p1, o.I.p2, o.I.p3,
@@ -116,12 +117,14 @@ void printOutput(int format, OutputBlock o, int header)
 				o.A.p1, o.A.p2, o.A.p3,
 				o.PR.ap, o.PRT[0].ap, o.PRT[1].ap,
 				o.PY.ap,
-				o.PT.ap
+				o.PT.ap,
+				o.ms
 			);
 			break;
 
 		case OF_JSON:
-			printf("{\"U\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"I\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"CosF\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"F\":%.2f,\"A\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"P\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"S\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"PR\":{\"ap\":%.2f},\"PR-day\":{\"ap\":%.2f},\"PR-night\":{\"ap\":%.2f},\"PY\":{\"ap\":%.2f},\"PT\":{\"ap\":%.2f}}\n\r",
+			printf("{\"mainsStatus\":%d,\"U\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"I\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"CosF\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"F\":%.2f,\"A\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f},\"P\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"S\":{\"p1\":%.2f,\"p2\":%.2f,\"p3\":%.2f,\"sum\":%.2f},\"PR\":{\"ap\":%.2f},\"PR-day\":{\"ap\":%.2f},\"PR-night\":{\"ap\":%.2f},\"PY\":{\"ap\":%.2f},\"PT\":{\"ap\":%.2f}}\n\r",
+				o.ms,
 				o.U.p1, o.U.p2, o.U.p3,
 				o.I.p1, o.I.p2, o.I.p3,
 				o.C.p1, o.C.p2, o.C.p3, o.C.sum,
@@ -186,19 +189,21 @@ int main(int argc, const char** args)
 		}
 	}
 
+	if (dryRun && dryFail)
+	{
+		printf("Error: use either %s or %s command line option.\n\r", OPT_TEST_RUN, OPT_TEST_FAIL);
+		exit(EXIT_FAIL);
+	}
+
 	OutputBlock o;
 	bzero(&o, sizeof(o));
 
-	if (dryFail)
-	{
-		printf("Error emuluation mode. Will terminate with error result code.\n\r");
-		exit(EXIT_FAIL);
-
-	}
+	if (dryRun) o.ms = MS_ON;
+	if (dryFail) o.ms = MS_OFF;
 
 	int exitCode = OK;
 
-	if (!dryRun)
+	if (!dryRun && !dryFail)
 	{
 		// Open RS485 dongle
 		// O_RDWR Read/Write access to serial port
@@ -253,6 +258,9 @@ int main(int argc, const char** args)
 			switch(checkChannel(fd))
 			{
 				case OK:
+					// Seems that power is on
+					o.ms = MS_ON;
+
 					if (OK != initConnection(fd)) goto stop_conversation;
 
 					// Get voltage by phases
@@ -293,14 +301,16 @@ int main(int argc, const char** args)
 
 				case CHECK_CHANNEL_FAILURE:
 					close(fd);
-					printf("Power meter channel time out.\n\r");
-					exitCode = EXIT_FAIL;
+					printf("Power meter channel time out, seems the power supply is off.\n\r");
+					o.ms = MS_OFF;
+					exitCode = OK;
 					break;
 
 				default:
 					close(fd);
-					printf("Power meter communication channel test failed.\n\r");
-					exitCode = EXIT_FAIL;
+					printf("Power meter communication channel test failed, seems the power supply is off.\n\r");
+					o.ms = MS_OFF;
+					exitCode = OK;
 					break;
 			}
 		}
