@@ -301,14 +301,16 @@ int main(int argc, const char** args)
 
 				case CHECK_CHANNEL_FAILURE:
 					close(fd);
-					printf("Power meter channel time out, seems the power supply is off.\n\r");
+					// spoils json!
+					// printf("Power meter channel time out, seems the power supply is off.\n\r");
 					o.ms = MS_OFF;
 					exitCode = OK;
 					break;
 
 				default:
 					close(fd);
-					printf("Power meter communication channel test failed, seems the power supply is off.\n\r");
+					// spoils json!
+					// printf("Power meter communication channel test failed, seems the power supply is off.\n\r");
 					o.ms = MS_OFF;
 					exitCode = OK;
 					break;
