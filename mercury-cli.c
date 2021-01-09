@@ -251,6 +251,9 @@ int main(int argc, const char** args)
 			fprintf(stderr, "Semaphore open error.");
 			exit(EXIT_FAIL);      
 		}
+		/* unlink prevents the semaphore existing forever */
+		/* if a crash occurs during the execution         */
+		sem_unlink(MERCURY_SEMAPHORE);      
 
 		// obtain exclusive access
 		if (!sem_wait(semptr))
