@@ -91,7 +91,7 @@ void printOutput(int format, OutputBlock o, int header)
 			printf("  Frequency (Hz):          		%8.2f\n\r", o.f);
 			printf("  Phase angles (deg):      		%8.2f %8.2f %8.2f\n\r", o.A.p1, o.A.p2, o.A.p3);
 			printf("  Active power (W):        		%8.2f %8.2f %8.2f (%8.2f)\n\r", o.P.p1, o.P.p2, o.P.p3, o.P.sum);
-			printf("  Reactive power (VA):     		%8.2f %8.2f %8.2f (%8.2f)\n\r", o.S.p1, o.S.p2, o.S.p3, o.S.sum);
+			printf("  Full power (VA):   	  		%8.2f %8.2f %8.2f (%8.2f)\n\r", o.S.p1, o.S.p2, o.S.p3, o.S.sum);
 			printf("  Total consumed, all tariffs (KW):	%8.2f\n\r", o.PR.ap);
 			printf("    including day tariff (KW):		%8.2f\n\r", o.PRT[0].ap);
 			printf("    including night tariff (KW):	%8.2f\n\r", o.PRT[1].ap);
